@@ -5,7 +5,6 @@ import { Subject } from 'rxjs';
 import { filter, takeUntil } from 'rxjs/operators';
 import {
   MsalBroadcastService,
-  MsalModule,
   MsalService,
 } from '@azure/msal-angular';
 import {
@@ -18,7 +17,7 @@ import { loginRequest } from './auth-config';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterModule, MsalModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './app.component.html',
 })
 export class AppComponent implements OnInit, OnDestroy {
@@ -31,6 +30,8 @@ export class AppComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.msalService.handleRedirectObservable().subscribe();
+
     this.msalBroadcastService.inProgress$
       .pipe(
         filter(

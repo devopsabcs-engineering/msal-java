@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -60,7 +61,7 @@ public class SecurityConfig {
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
+            Collection<GrantedAuthority> authorities = new ArrayList<>();
 
             // Map roles claim to ROLE_ prefixed authorities
             List<String> roles = jwt.getClaimAsStringList("roles");
