@@ -39,6 +39,19 @@ if (-not (Get-Command mvn -ErrorAction SilentlyContinue)) {
     Write-Host "To make permanent, add $mavenBin to your system PATH."
 }
 
+# --- Kill previous instances ---
+Write-Host 'Stopping any previous instances...'
+# Kill Java processes running evidence-api
+Get-Process -Name java -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'evidence' } |
+    Stop-Process -Force -ErrorAction SilentlyContinue
+# Kill node/ng serve on port 4200
+$ngPid = (Get-NetTCPConnection -LocalPort 4200 -ErrorAction SilentlyContinue).OwningProcess | Select-Object -Unique
+if ($ngPid) { Stop-Process -Id $ngPid -Force -ErrorAction SilentlyContinue }
+# Kill anything on port 8080
+$apiPid = (Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue).OwningProcess | Select-Object -Unique
+if ($apiPid) { Stop-Process -Id $apiPid -Force -ErrorAction SilentlyContinue }
+
 # --- Install SPA dependencies if needed ---
 if (-not (Test-Path (Join-Path $SpaDir 'node_modules'))) {
     Write-Host 'Installing SPA dependencies...'

@@ -19,6 +19,11 @@ cleanup() {
 }
 trap cleanup INT TERM
 
+# --- Kill previous instances ---
+echo "Stopping any previous instances..."
+lsof -ti:4200 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+lsof -ti:8080 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+
 # --- Install SPA dependencies if needed ---
 if [ ! -d "$SPA_DIR/node_modules" ]; then
     echo "Installing SPA dependencies..."
