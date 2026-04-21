@@ -1,0 +1,49 @@
+<div class="case-detail-container">
+  <p *ngIf="loading">Loading case details&hellip;</p>
+  <p *ngIf="error" class="error">{{ error }}</p>
+
+  <div *ngIf="caseData">
+    <h2>{{ caseData.title }}</h2>
+    <dl>
+      <dt>Case ID</dt>
+      <dd>{{ caseData.id }}</dd>
+      <dt>Status</dt>
+      <dd>{{ caseData.status }}</dd>
+      <dt>Assigned To</dt>
+      <dd>{{ caseData.assignedTo }}</dd>
+      <dt>Description</dt>
+      <dd>{{ caseData.description }}</dd>
+    </dl>
+
+    <h3>Evidence Files</h3>
+    <table *ngIf="caseData.evidenceFiles.length > 0" class="evidence-table">
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Classification</th>
+          <th>Uploaded</th>
+          <th>Size (bytes)</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let file of caseData.evidenceFiles">
+          <td>{{ file.filename }}</td>
+          <td>{{ file.classification }}</td>
+          <td>{{ file.uploadedAt }}</td>
+          <td>{{ file.sizeBytes }}</td>
+          <td>
+            <button class="btn btn-sm" (click)="download(file.id)">
+              Download
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p *ngIf="caseData.evidenceFiles.length === 0">
+      No evidence files attached.
+    </p>
+
+    <a routerLink="/cases">&larr; Back to Cases</a>
+  </div>
+</div>

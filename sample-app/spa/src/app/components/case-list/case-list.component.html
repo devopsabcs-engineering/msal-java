@@ -1,0 +1,29 @@
+<div class="case-list-container">
+  <h2>Evidence Cases</h2>
+
+  <p *ngIf="loading">Loading cases&hellip;</p>
+  <p *ngIf="error" class="error">{{ error }}</p>
+
+  <table *ngIf="!loading && !error && cases.length > 0" class="case-table">
+    <thead>
+      <tr>
+        <th>Case ID</th>
+        <th>Title</th>
+        <th>Status</th>
+        <th>Assigned To</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let c of cases">
+        <td><a [routerLink]="['/cases', c.id]">{{ c.id }}</a></td>
+        <td>{{ c.title }}</td>
+        <td>{{ c.status }}</td>
+        <td>{{ c.assignedTo }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p *ngIf="!loading && !error && cases.length === 0">
+    No cases found.
+  </p>
+</div>

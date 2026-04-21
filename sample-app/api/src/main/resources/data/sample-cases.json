@@ -1,0 +1,89 @@
+[
+  {
+    "id": "CASE-2024-001",
+    "title": "Digital Evidence Review - Operation Shield",
+    "status": "Open",
+    "assignedTo": "Det. Sarah Mitchell",
+    "description": "Comprehensive review of digital evidence collected during Operation Shield, including witness testimony transcripts and forensic analysis reports.",
+    "evidenceFiles": [
+      {
+        "id": "EV-001",
+        "filename": "witness-statement.pdf",
+        "classification": "Confidential",
+        "uploadedAt": "2024-03-15T10:30:00Z",
+        "sizeBytes": 245760
+      },
+      {
+        "id": "EV-002",
+        "filename": "forensic-report.pdf",
+        "classification": "Restricted",
+        "uploadedAt": "2024-03-16T14:22:00Z",
+        "sizeBytes": 512000
+      }
+    ]
+  },
+  {
+    "id": "CASE-2024-002",
+    "title": "Financial Records Analysis",
+    "status": "Under Review",
+    "assignedTo": "Analyst James Porter",
+    "description": "Analysis of financial records related to suspected fraudulent transactions across multiple accounts.",
+    "evidenceFiles": [
+      {
+        "id": "EV-003",
+        "filename": "surveillance-log.pdf",
+        "classification": "Internal",
+        "uploadedAt": "2024-04-01T09:15:00Z",
+        "sizeBytes": 184320
+      }
+    ]
+  },
+  {
+    "id": "CASE-2024-003",
+    "title": "Surveillance Video Authentication",
+    "status": "Open",
+    "assignedTo": "Tech. Officer Lisa Chen",
+    "description": "Authentication and verification of surveillance video footage submitted as evidence in pending litigation.",
+    "evidenceFiles": [
+      {
+        "id": "EV-004",
+        "filename": "chain-of-custody.pdf",
+        "classification": "Confidential",
+        "uploadedAt": "2024-04-10T16:45:00Z",
+        "sizeBytes": 102400
+      }
+    ]
+  },
+  {
+    "id": "CASE-2024-004",
+    "title": "Chain of Custody Verification",
+    "status": "Closed",
+    "assignedTo": "Sgt. David Park",
+    "description": "Verification of chain of custody documentation for physical evidence transferred between jurisdictions.",
+    "evidenceFiles": [
+      {
+        "id": "EV-004",
+        "filename": "chain-of-custody.pdf",
+        "classification": "Confidential",
+        "uploadedAt": "2024-04-10T16:45:00Z",
+        "sizeBytes": 102400
+      }
+    ]
+  },
+  {
+    "id": "CASE-2024-005",
+    "title": "Contract Dispute Evidence",
+    "status": "Open",
+    "assignedTo": "Paralegal Maria Gonzalez",
+    "description": "Collection and organization of documentary evidence related to the ongoing contract dispute between parties.",
+    "evidenceFiles": [
+      {
+        "id": "EV-005",
+        "filename": "contract-agreement.pdf",
+        "classification": "Internal",
+        "uploadedAt": "2024-05-02T11:00:00Z",
+        "sizeBytes": 327680
+      }
+    ]
+  }
+]

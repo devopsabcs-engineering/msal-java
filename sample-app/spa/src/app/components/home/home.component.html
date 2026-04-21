@@ -1,0 +1,20 @@
+<div class="home-container">
+  <h1>Justice Evidence Portal</h1>
+  <p>
+    A workshop sample application demonstrating MSAL-based authentication with
+    an Angular SPA and a Spring Boot API.
+  </p>
+
+  <div *ngIf="!isLoggedIn" class="sign-in-prompt">
+    <p>Sign in to access evidence case management.</p>
+    <button class="btn btn-primary" (click)="login()">Sign In</button>
+  </div>
+
+  <div *ngIf="isLoggedIn && user" class="user-info">
+    <p>Welcome, <strong>{{ user.name }}</strong></p>
+    <p>Email: {{ user.email }}</p>
+    <p *ngIf="user.roles.length > 0">
+      Roles: {{ user.roles.join(', ') }}
+    </p>
+  </div>
+</div>
