@@ -7,14 +7,37 @@
 
   <div *ngIf="!isLoggedIn" class="sign-in-prompt">
     <p>Sign in to access evidence case management.</p>
-    <button class="btn btn-primary" (click)="login()">Sign In</button>
+    <button class="btn btn-primary" (click)="login()">
+      🔐 Sign In with Microsoft
+    </button>
   </div>
 
   <div *ngIf="isLoggedIn && user" class="user-info">
-    <p>Welcome, <strong>{{ user.name }}</strong></p>
-    <p>Email: {{ user.email }}</p>
+    <h3>Welcome back, {{ user.name }}</h3>
+    <p><strong>Email:</strong> {{ user.email }}</p>
     <p *ngIf="user.roles.length > 0">
-      Roles: {{ user.roles.join(', ') }}
+      <strong>Roles:</strong> {{ user.roles.join(', ') }}
     </p>
+    <a routerLink="/cases" class="btn btn-primary" style="margin-top: 16px; display: inline-block; text-decoration: none; color: #fff;">
+      View Cases →
+    </a>
+  </div>
+
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <h3>Entra ID Auth</h3>
+      <p>Auth Code + PKCE flow with MSAL Angular v5</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">☕</div>
+      <h3>Spring Boot API</h3>
+      <p>JWT validation, scope and role enforcement</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">☁️</div>
+      <h3>Azure Storage</h3>
+      <p>Managed Identity access to Blob Storage</p>
+    </div>
   </div>
 </div>
