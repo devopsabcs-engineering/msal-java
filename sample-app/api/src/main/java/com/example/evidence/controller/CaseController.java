@@ -6,6 +6,7 @@ import com.example.evidence.model.Case;
 import com.example.evidence.service.CaseService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,12 +71,19 @@ public class CaseController {
     }
 
     @GetMapping("/me")
-    public Map<String, Object> getCurrentUser(JwtAuthenticationToken authentication) {
+    public Map<String, Object> getCurrentUser(Authentication authentication) {
         Map<String, Object> userInfo = new HashMap<>();
-        userInfo.put("name", authentication.getToken().getClaimAsString("name"));
-        userInfo.put("preferred_username", authentication.getToken().getClaimAsString("preferred_username"));
-        userInfo.put("roles", authentication.getToken().getClaimAsStringList("roles"));
-        userInfo.put("scp", authentication.getToken().getClaimAsString("scp"));
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            userInfo.put("name", jwtAuth.getToken().getClaimAsString("name"));
+            userInfo.put("preferred_username", jwtAuth.getToken().getClaimAsString("preferred_username"));
+            userInfo.put("roles", jwtAuth.getToken().getClaimAsStringList("roles"));
+            userInfo.put("scp", jwtAuth.getToken().getClaimAsString("scp"));
+        } else {
+            userInfo.put("name", "Dev User (no JWT)");
+            userInfo.put("preferred_username", "dev@localhost");
+            userInfo.put("roles", Collections.emptyList());
+            userInfo.put("scp", "Evidence.Read");
+        }
         return userInfo;
     }
 }
