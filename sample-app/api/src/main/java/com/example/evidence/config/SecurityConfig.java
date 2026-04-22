@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Configuration
-@EnableMethodSecurity
 public class SecurityConfig {
 
     @Value("${app.cors.allowed-origins:http://localhost:4200}")
