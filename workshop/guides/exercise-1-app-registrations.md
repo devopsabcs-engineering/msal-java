@@ -113,14 +113,16 @@ export const environment = {
 
 ### Step 10: Update the API Configuration
 
-Open `sample-app/api/src/main/resources/application-dev.properties` and replace the placeholder values:
+The API uses standard Spring Security OAuth2 Resource Server for JWT validation. The `dev` profile runs without JWT validation so you can explore the API immediately. For production deployment (Exercise 4), the JWT issuer URI and audience are set via environment variables.
 
-```properties
-spring.cloud.azure.active-directory.credential.client-id=<API-CLIENT-ID>
-spring.cloud.azure.active-directory.profile.tenant-id=<TENANT-ID>
-spring.security.oauth2.resourceserver.jwt.audiences=api://<API-CLIENT-ID>
-spring.security.oauth2.resourceserver.jwt.issuer-uri=https://login.microsoftonline.com/<TENANT-ID>/v2.0
-```
+No changes to `application-dev.properties` are needed at this point. The API configuration is updated during deployment in Exercise 4.
+
+> **Note:** If you want to enable JWT validation locally, set these environment variables before starting the API:
+>
+> ```bash
+> export JWT_ISSUER_URI=https://login.microsoftonline.com/<TENANT-ID>/v2.0
+> export JWT_AUDIENCE=api://<API-CLIENT-ID>
+> ```
 
 ## Scripted Alternative
 
@@ -144,7 +146,7 @@ Confirm your setup by checking these items:
 - [ ] SPA has `Evidence.Read` delegated permission granted
 - [ ] SPA is pre-authorized on the API
 - [ ] `environment.ts` contains real Client ID, Tenant ID, and scope URI
-- [ ] `application-dev.properties` contains real Client ID, Tenant ID, and audience
+- [ ] You have recorded the API Client ID, SPA Client ID, and Tenant ID for later exercises
 
 ## Troubleshooting
 

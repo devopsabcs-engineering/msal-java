@@ -16,6 +16,28 @@ Experience the full role-based access control (RBAC) cycle: attempt a protected 
 
 ## Steps
 
+### Step 0: Enable JWT Validation and Method Security
+
+The `dev` profile permits all requests and disables `@PreAuthorize` to allow exploration. To experience the RBAC cycle, you must switch to a profile with real JWT validation.
+
+1. Stop the API if it is running (Ctrl+C).
+2. Set your Entra ID configuration as environment variables:
+
+```bash
+export JWT_ISSUER_URI=https://login.microsoftonline.com/<TENANT-ID>/v2.0
+export JWT_AUDIENCE=api://<API-CLIENT-ID>
+export SPRING_PROFILES_ACTIVE=prod
+```
+
+3. Restart the API:
+
+```bash
+cd sample-app/api
+mvn spring-boot:run
+```
+
+> **Why?** Method security annotations (`@PreAuthorize`) are only enforced in non-dev profiles. The `MethodSecurityConfig` class enables `@EnableMethodSecurity` only for the `!dev` profile.
+
 ### Step 1: Examine the POST Endpoint
 
 Open `sample-app/api/src/main/java/com/example/evidence/controller/CaseController.java` and locate the `POST /api/cases` method. Notice the `@PreAuthorize("hasAuthority('ROLE_CaseAdmin')")` annotation. This annotation restricts the endpoint to users whose JWT contains `CaseAdmin` in the `roles` claim.
@@ -128,4 +150,4 @@ If you need to check your work or catch up, solution files are available:
 | Role not visible in Enterprise applications | Looking at the App registration instead of Enterprise application | App roles are assigned under **Enterprise applications**, not App registrations |
 | `roles` claim missing from JWT | Role assignment did not propagate | Wait 1-2 minutes, sign out, sign back in, and check the token again |
 | 500 error on POST instead of 201 | Request body missing required fields | Ensure the JSON body includes `title` and `description` fields |
-| `@PreAuthorize` not enforced (any user can POST) | `@EnableMethodSecurity` annotation missing from security configuration | Verify `SecurityConfig.java` has `@EnableMethodSecurity` on the class |
+| `@PreAuthorize` not enforced (any user can POST) | Running with the `dev` profile which disables method security | Restart the API with a non-dev profile: set `SPRING_PROFILES_ACTIVE=prod` and provide `JWT_ISSUER_URI` and `JWT_AUDIENCE` environment variables |

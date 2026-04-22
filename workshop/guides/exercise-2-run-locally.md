@@ -27,15 +27,15 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 
 Wait for the log line `Started EvidenceApiApplication` before proceeding. The API runs on `http://localhost:8080`.
 
-### Step 2: Verify the API Requires Authentication
+### Step 2: Verify the API Is Running
 
-In a second terminal, send an unauthenticated request:
+In a second terminal, send a request:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/me
+curl -s http://localhost:8080/api/cases | head -c 200
 ```
 
-Expected result: `401`. This confirms the API rejects requests without a valid Bearer token.
+Expected result: a JSON array of 5 mock cases. In the `dev` profile, all endpoints are open for exploration without authentication. JWT validation is enabled when deploying to Azure (Exercise 4).
 
 ### Step 3: Install SPA Dependencies and Start the SPA
 
@@ -103,7 +103,7 @@ Select **Sign Out** in the navigation bar. Verify:
 
 Confirm each of these items works correctly:
 
-- [ ] API starts and returns 401 for unauthenticated requests
+- [ ] API starts successfully and returns case data at `http://localhost:8080/api/cases`
 - [ ] SPA compiles and loads at `http://localhost:4200`
 - [ ] Sign-in redirects to Entra ID and returns an authenticated session
 - [ ] Case list loads with sample data

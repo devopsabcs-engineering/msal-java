@@ -150,9 +150,9 @@ echo "==> Configuring API App Service: ${API_APP_NAME}..."
 API_IDENTIFIER_URI="api://${API_CLIENT_ID}"
 
 API_SETTINGS=(
-    "AZURE_AD_CLIENT_ID=${API_CLIENT_ID}"
-    "AZURE_AD_TENANT_ID=${TENANT_ID}"
-    "AZURE_AD_APP_ID_URI=${API_IDENTIFIER_URI}"
+    "AZURE_TENANT_ID=${TENANT_ID}"
+    "JWT_ISSUER_URI=https://login.microsoftonline.com/${TENANT_ID}/v2.0"
+    "JWT_AUDIENCE=${API_IDENTIFIER_URI}"
     "AZURE_STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME}"
     "AZURE_STORAGE_CONTAINER_NAME=${CONTAINER_NAME}"
     "WEBSITES_PORT=8080"
@@ -170,9 +170,9 @@ az webapp config appsettings set \
     --output none
 
 echo "    API settings configured:"
-echo "      AZURE_AD_CLIENT_ID"
-echo "      AZURE_AD_TENANT_ID"
-echo "      AZURE_AD_APP_ID_URI"
+echo "      AZURE_TENANT_ID"
+echo "      JWT_ISSUER_URI"
+echo "      JWT_AUDIENCE"
 echo "      AZURE_STORAGE_ACCOUNT_NAME"
 echo "      AZURE_STORAGE_CONTAINER_NAME"
 echo "      WEBSITES_PORT=8080"
