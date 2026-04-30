@@ -16,6 +16,20 @@ Deploy the complete evidence management solution to Azure using Bicep infrastruc
 
 **Cost note:** The deployed infrastructure uses a B1 App Service Plan and Standard LRS Storage Account, costing approximately $14/month. Delete the resource group after the workshop to avoid ongoing charges.
 
+> ## Fast-Track: One-Command Deploy
+>
+> If you would rather see the final state in Azure first and study the steps afterward, run the one-stop deployment script. It is idempotent and chains every step below (resource group, Bicep, builds, app deploys, evidence upload, smoke test) into a single command:
+>
+> ```powershell
+> az login --tenant <tenantId>
+> az account set --subscription <subscriptionIdOrName>
+> .\scripts\deploy.ps1
+> ```
+>
+> When it finishes, the smoke-test section will print the SPA URL (expecting `200`) and the API `/api/cases` URL (expecting `401`, which proves JWT validation is on). Open the SPA URL, sign in with the same account you ran the script as (it has already been assigned `CaseReader` + `CaseAdmin`), and you should see all five sample cases. The full script reference is in the [README's Fast-Track to Azure section](../../README.md#fast-track-to-azure-one-command).
+>
+> The manual steps below remain valuable as a learning reference — they show exactly what `deploy.ps1` automates.
+
 ## Steps
 
 ### Step 1: Create a Resource Group
@@ -69,19 +83,29 @@ mvn clean package -DskipTests
 
 ### Step 5: Upload Sample Evidence Files to Storage
 
-After the deployment completes, upload the sample evidence PDFs to the storage container:
+After the deployment completes, upload the sample evidence PDFs to the storage container. The `--auth-mode login` flag uses your Azure AD credentials (no storage keys), so you first need to grant yourself the **Storage Blob Data Contributor** role on the new account:
 
 ```bash
 STORAGE_ACCOUNT=$(az deployment group show \
   --resource-group rg-evidence-workshop \
   --name main \
-  --query properties.outputs.storageAccountName.value -o tsv)
+  --query properties.outputs.storageAccountNameOutput.value -o tsv)
 
+# Grant the signed-in user the data plane role (Owner alone is not enough for blob ops)
+USER_OID=$(az ad signed-in-user show --query id -o tsv)
+SA_ID=$(az storage account show --resource-group rg-evidence-workshop --name $STORAGE_ACCOUNT --query id -o tsv)
+az role assignment create \
+  --assignee-object-id $USER_OID --assignee-principal-type User \
+  --role 'Storage Blob Data Contributor' --scope $SA_ID
+
+# Wait ~30s for the role assignment to propagate, then upload
+sleep 30
+az storage container create --account-name $STORAGE_ACCOUNT --name evidence --auth-mode login
 az storage blob upload-batch \
   --account-name $STORAGE_ACCOUNT \
   --destination evidence \
-  --source sample-app/api/src/main/resources/data/evidence-files \
-  --auth-mode login
+  --source sample-app/api/src/main/resources/data/sample-evidence \
+  --auth-mode login --overwrite
 ```
 
 ### Step 6: Deploy the SPA
@@ -93,13 +117,15 @@ SPA_APP=$(az deployment group show \
   --query properties.outputs.spaAppName.value -o tsv)
 
 cd sample-app/spa/dist/evidence-portal/browser
-zip -r ../../../spa.zip .
+zip -r ../../../../spa.zip .
 az webapp deploy \
   --resource-group rg-evidence-workshop \
   --name $SPA_APP \
-  --src-path ../../../spa.zip \
+  --src-path ../../../../spa.zip \
   --type zip
 ```
+
+> Some Angular versions emit straight to `dist/evidence-portal/` without a `browser/` sub-folder. Adjust the `cd` accordingly if you don't see the inner directory.
 
 ### Step 7: Deploy the API
 
@@ -118,18 +144,20 @@ az webapp deploy \
 
 ### Step 8: Configure App Settings
 
-Run the configuration script to set environment variables on both App Services:
+The Bicep deployment already populates the necessary app settings on both App Services (`SPRING_PROFILES_ACTIVE=prod`, `JWT_ISSUER_URI`, `JWT_AUDIENCE`, `AZURE_TENANT_ID`, `CORS_ALLOWED_ORIGINS`, `STORAGE_ACCOUNT_NAME`, and `APPLICATIONINSIGHTS_CONNECTION_STRING`). If you ever need to inspect or override them, use:
 
 ```bash
-cd scripts
-chmod +x configure-app-settings.sh
-./configure-app-settings.sh \
+az webapp config appsettings list \
   --resource-group rg-evidence-workshop \
-  --spa-app $SPA_APP \
-  --api-app $API_APP
+  --name $API_APP \
+  --output table
 ```
 
-This sets the Entra ID configuration values, storage account name, and Application Insights connection string on the deployed applications.
+To force a restart after changing settings:
+
+```bash
+az webapp restart --resource-group rg-evidence-workshop --name $API_APP
+```
 
 ### Step 9: Update the SPA Redirect URI
 
@@ -142,6 +170,8 @@ This sets the Entra ID configuration values, storage account name, and Applicati
 2. Open the SPA app registration in the Entra Admin Center.
 3. Go to **Authentication** and add a new SPA platform redirect URI: `https://<spa-app-name>.azurewebsites.net`.
 4. Select **Save**.
+
+> The fast-track `deploy.ps1` script does this for you by re-invoking `setup-entra-apps.ps1 -ProductionRedirectUri <spaUrl>` after the App Service URLs are known.
 
 ### Step 10: Test the Deployed Application
 

@@ -126,7 +126,33 @@ No changes to `application-dev.properties` are needed at this point. The API con
 
 ## Scripted Alternative
 
-If you prefer an automated approach or are running short on time, run the setup script:
+If you prefer an automated approach or are running short on time, run one of the bootstrap scripts. Both are idempotent — they reuse existing app registrations rather than creating duplicates, so it is safe to run them multiple times.
+
+**PowerShell (Windows / cross-platform pwsh, recommended):**
+
+```powershell
+# Sign in to the tenant where the apps should live
+az login --tenant <tenantId>
+
+.\scripts\setup-entra-apps.ps1 `
+    -SpaName "Evidence Portal SPA" `
+    -ApiName "Evidence Portal API"
+```
+
+This single command performs every step in this exercise via Microsoft Graph:
+
+- Creates the API app and exposes the `Evidence.Read` OAuth2 scope.
+- Defines the `CaseReader` and `CaseAdmin` app roles.
+- Creates the SPA app and configures its `http://localhost:4200` SPA redirect URI.
+- Grants the SPA delegated `Evidence.Read` permission and pre-authorizes it on the API.
+- Creates service principals for both apps.
+- Grants tenant admin consent for the SPA's delegated permission.
+- Self-assigns the signed-in user to both `CaseReader` and `CaseAdmin`.
+- Patches `environment.ts`, `environment.prod.ts`, and `application.properties` with the resulting client/tenant IDs.
+
+When the script finishes, you can jump directly to [Exercise 2](exercise-2-run-locally.md). Re-running the script later (for example with `-ProductionRedirectUri https://my-spa.azurewebsites.net` after Exercise 4) only adds the missing pieces.
+
+**Bash (macOS / Linux):**
 
 ```bash
 cd scripts
@@ -134,7 +160,7 @@ chmod +x setup-entra-apps.sh
 ./setup-entra-apps.sh
 ```
 
-The script creates both registrations, configures scopes and roles, and writes the configuration values to the appropriate files. Review the output to confirm all values were set correctly.
+The bash version covers the same Phase 1 surface (app registrations, scope, roles, redirect URI). For the consent + role-assignment automation in a single command, use the PowerShell version.
 
 ## Verification
 

@@ -87,15 +87,17 @@ The sample apps work immediately without any Azure or Entra ID configuration. Th
 
 ### Bootstrap Entra ID App Registrations (PowerShell)
 
-[scripts/setup-entra-apps.ps1](scripts/setup-entra-apps.ps1) is an idempotent PowerShell helper that creates the SPA and API app registrations against the tenant you are currently logged in to with the Azure CLI. It is the fastest path through Exercise 1 if you prefer scripting over the Azure Portal.
+[scripts/setup-entra-apps.ps1](scripts/setup-entra-apps.ps1) is an idempotent PowerShell helper that creates and fully configures the SPA and API app registrations against the tenant you are currently logged in to with the Azure CLI. It is the fastest path through Exercise 1 if you prefer scripting over the Azure Portal.
 
-What it does today (Phase 1):
+What it does (every call is a no-op if the resource is already configured the right way):
 
 - Verifies `az` is installed and you are signed in (`az login`).
 - Acquires a Microsoft Graph access token and calls Graph directly via `Invoke-RestMethod` (no `az rest` quoting issues on Windows).
-- Creates the **API app** and sets its Application ID URI to `api://<appId>`.
-- Creates the **SPA app** and configures its SPA platform redirect URI (default `http://localhost:4200`).
-- On re-run, looks each app up by `displayName` and reuses it instead of creating duplicates. Every step is a no-op if already configured.
+- Creates the **API app**, sets its Application ID URI to `api://<appId>`, exposes the `Evidence.Read` OAuth2 scope, and defines the `CaseReader` and `CaseAdmin` app roles.
+- Creates the **SPA app**, configures its SPA platform redirect URI(s), grants the delegated `Evidence.Read` permission, and pre-authorizes the SPA on the API.
+- Creates service principals for both apps if they don't exist yet.
+- (Optional, default on) Grants tenant admin consent for the SPA's delegated permission and self-assigns the signed-in user to both `CaseReader` and `CaseAdmin` so you can sign in immediately.
+- (Optional, default on) Patches the local `environment.ts`, `environment.prod.ts`, and `application.properties` files with the resulting client/tenant IDs and scope URI.
 
 Usage:
 
@@ -103,33 +105,91 @@ Usage:
 # Sign in to the tenant where the apps should live
 az login --tenant <tenantId>
 
-# Bootstrap both app registrations
+# Bootstrap both app registrations and patch local config
 .\scripts\setup-entra-apps.ps1 `
     -SpaName "Evidence Portal SPA" `
     -ApiName "Evidence Portal API"
 
-# Optional: capture the resulting IDs for downstream automation (e.g. deploy.ps1)
+# Re-run later with a production redirect URI (idempotent)
 .\scripts\setup-entra-apps.ps1 `
     -SpaName "Evidence Portal SPA" `
     -ApiName "Evidence Portal API" `
-    -RedirectUri "https://my-spa.azurewebsites.net" `
+    -ProductionRedirectUri "https://my-spa.azurewebsites.net" `
     -OutputFile ".\.entra-apps.json"
 ```
 
-The script returns and prints `tenantId`, `apiAppId`, `apiObjectId`, `identifierUri`, `spaAppId`, `spaObjectId`, and `redirectUri`. Plug `tenantId`, `apiAppId`, and `spaAppId` into [`environment.ts`](sample-app/spa/src/environments/environment.ts) and [`application.properties`](sample-app/api/src/main/resources/application.properties) (or pass them to [scripts/deploy.ps1](scripts/deploy.ps1)).
+The script returns and prints `tenantId`, `apiAppId`, `apiObjectId`, `apiServicePrincipalId`, `apiScopeId`, `apiScopeUri`, `roleReaderId`, `roleAdminId`, `spaAppId`, `spaObjectId`, `spaServicePrincipalId`, plus the redirect URIs and consent/role-assignment status. With `-OutputFile` it also writes a JSON state file that [scripts/deploy.ps1](scripts/deploy.ps1) consumes on its next run, so you don't need to re-run setup before every deployment.
 
-> **Phase 2 (planned):** the same script will be extended via Microsoft Graph to expose the `Evidence.Read` scope, define `CaseReader` / `CaseAdmin` app roles, add the SPA's delegated permission on the API, pre-authorize the SPA, and grant tenant admin consent. Until then, complete those steps in the Azure Portal as described in [Exercise 1](workshop/guides/exercise-1-app-registrations.md).
+> Skip the patching or admin consent with `-UpdateLocalConfig:$false`, `-GrantAdminConsent:$false`, or `-AssignCurrentUserToRoles:$false` if you would rather wire those up by hand.
+
+### Fast-Track to Azure (One Command)
+
+If you want to see the deployed end-state in Azure as quickly as possible — without going through the four guided exercises — run the one-stop deployment script. It chains every step of Exercises 1 and 4 into a single idempotent run.
+
+```powershell
+# Sign in once to the tenant where the apps and Azure resources should live
+az login --tenant <tenantId>
+az account set --subscription <subscriptionIdOrName>
+
+# Deploy everything (Entra ID + Bicep + SPA + API + evidence files)
+.\scripts\deploy.ps1
+```
+
+What `deploy.ps1` does end-to-end:
+
+1. Verifies `az`, `node`, `mvn` (auto-installs Maven into `%LOCALAPPDATA%\Maven` if missing).
+2. Calls `setup-entra-apps.ps1` to create/reuse both app registrations, expose the scope and roles, grant admin consent, and assign your user to `CaseReader` + `CaseAdmin`.
+3. Creates the resource group `rg-evidence-workshop` in `canadacentral` and a deterministic globally-unique storage account name.
+4. Deploys the Bicep stack (App Service Plan, two App Services with system-assigned Managed Identity, Storage Account, Application Insights, role assignments).
+5. Patches `environment.prod.ts` with the deployed SPA/API URLs and App Insights connection string.
+6. Re-runs `setup-entra-apps.ps1` to add the production SPA URL as a SPA-platform redirect URI on the SPA app registration.
+7. Builds the Angular SPA in production mode and the Spring Boot API as an executable JAR.
+8. Deploys the SPA zip and the API JAR with `az webapp deploy`.
+9. Grants your user `Storage Blob Data Contributor` on the storage account, creates the `evidence` container, and uploads the five sample PDFs (with retries to absorb RBAC propagation).
+10. Smoke-tests the result: SPA URL must return `200`, API `/api/cases` must return `401` (proving JWT validation is enforced).
+
+When it finishes you'll see something like:
+
+```text
+Deployment complete
+
+ Resource Group : rg-evidence-workshop
+ Region         : canadacentral
+ SPA URL        : https://app-evidence-spa-workshop.azurewebsites.net
+ API URL        : https://app-evidence-api-workshop.azurewebsites.net
+ Storage        : stevpworkshopXXXXXXXX (container: evidence)
+```
+
+Open the SPA URL, sign in with the same account you ran the script as, and you should land on the case list with all five sample cases — files served from Blob Storage through the API's Managed Identity.
+
+Common flags:
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `-ResourceGroup` | `rg-evidence-workshop` | Target resource group (created if missing). |
+| `-Location` | `canadacentral` | Azure region. |
+| `-Environment` | `workshop` | Suffix used for App Service names (`app-evidence-spa-<env>`, `app-evidence-api-<env>`). |
+| `-SkipEntraSetup` | off | Reuse a previous `.entra-apps.json` and skip the Graph calls. |
+| `-SkipBuild` | off | Reuse the existing `dist/` and `target/` artifacts. |
+| `-SkipUpload` | off | Skip the sample-evidence blob upload. |
+
+When you're done with the workshop, remove everything with:
+
+```powershell
+az group delete --name rg-evidence-workshop --yes --no-wait
+```
+
 
 ### Workshop Exercises
 
-Follow these exercises in order for the full 3-hour workshop experience:
+Follow these exercises in order for the full 3-hour workshop experience. Already saw the Fast-Track land everything in Azure? You can still use these guides as a tear-down of what `deploy.ps1` automated.
 
 | Exercise | Duration | Description |
 |---|---|---|
-| [Exercise 1: Configure App Registrations](workshop/guides/exercise-1-app-registrations.md) | 30 min | Create Entra ID app registrations for the SPA and API, configure scopes, roles, and update the SPA environment |
-| [Exercise 2: Run SPA + API Locally](workshop/guides/exercise-2-run-locally.md) | 30 min | Sign in through the SPA, browse cases, download evidence, and inspect JWT tokens |
-| [Exercise 3: Add Role-Protected Endpoint](workshop/guides/exercise-3-add-endpoint.md) | 20 min | Experience the RBAC cycle: 403 Forbidden, assign CaseAdmin role, re-authenticate, 201 Created |
-| [Exercise 4: Deploy to Azure](workshop/guides/exercise-4-deploy-azure.md) | 20 min | Deploy both apps and infrastructure to Azure using Bicep, verify Managed Identity storage access |
+| [Exercise 1: Configure App Registrations](workshop/guides/exercise-1-app-registrations.md) | 30 min | Create Entra ID app registrations for the SPA and API, configure scopes, roles, and update the SPA environment. (Automated end-to-end by `setup-entra-apps.ps1`.) |
+| [Exercise 2: Run SPA + API Locally](workshop/guides/exercise-2-run-locally.md) | 30 min | Sign in through the SPA, browse cases, download evidence, and inspect JWT tokens. |
+| [Exercise 3: Add Role-Protected Endpoint](workshop/guides/exercise-3-add-endpoint.md) | 20 min | Experience the RBAC cycle: 403 Forbidden, assign CaseAdmin role, re-authenticate, 201 Created. |
+| [Exercise 4: Deploy to Azure](workshop/guides/exercise-4-deploy-azure.md) | 20 min | Deploy both apps and infrastructure to Azure using Bicep, verify Managed Identity storage access. (Automated end-to-end by `deploy.ps1`.) |
 
 For the full instructor delivery guide with 9-module schedule and presentation notes, see [workshop/README.md](workshop/README.md).
 

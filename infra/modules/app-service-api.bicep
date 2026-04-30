@@ -23,6 +23,9 @@ param storageAccountName string
 @description('Application Insights connection string.')
 param appInsightsConnectionString string
 
+@description('Allowed origin for CORS (typically the SPA App Service URL).')
+param allowedOrigin string
+
 @description('Resource tags.')
 param tags object = {}
 
@@ -47,6 +50,10 @@ resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
           value: '8080'
         }
         {
+          name: 'SPRING_PROFILES_ACTIVE'
+          value: 'prod'
+        }
+        {
           name: 'SPRING_CLOUD_AZURE_ACTIVE_DIRECTORY_CREDENTIAL_CLIENT_ID'
           value: apiClientId
         }
@@ -59,12 +66,28 @@ resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
           value: 'api://${apiClientId}'
         }
         {
+          name: 'JWT_ISSUER_URI'
+          value: '${environment().authentication.loginEndpoint}${tenantId}/v2.0'
+        }
+        {
+          name: 'JWT_AUDIENCE'
+          value: 'api://${apiClientId}'
+        }
+        {
+          name: 'AZURE_TENANT_ID'
+          value: tenantId
+        }
+        {
           name: 'AZURE_STORAGE_ACCOUNT_NAME'
           value: storageAccountName
         }
         {
           name: 'AZURE_STORAGE_CONTAINER_NAME'
           value: 'evidence'
+        }
+        {
+          name: 'CORS_ALLOWED_ORIGINS'
+          value: allowedOrigin
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'

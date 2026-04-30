@@ -105,6 +105,7 @@ module apiApp 'modules/app-service-api.bicep' = {
     tenantId: tenantId
     storageAccountName: storageAccountName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    allowedOrigin: 'https://${spaAppName}.azurewebsites.net'
     tags: tags
   }
 }
@@ -130,5 +131,14 @@ output spaUrl string = 'https://${spaAppName}.azurewebsites.net'
 @description('URL of the deployed API application.')
 output apiUrl string = 'https://${apiAppName}.azurewebsites.net'
 
+@description('SPA App Service name.')
+output spaAppName string = spaAppName
+
+@description('API App Service name.')
+output apiAppName string = apiAppName
+
 @description('Storage account name for evidence blob container.')
 output storageAccountNameOutput string = storageAccountName
+
+@description('Application Insights connection string.')
+output appInsightsConnectionString string = monitoring.outputs.appInsightsConnectionString
