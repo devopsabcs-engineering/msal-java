@@ -85,6 +85,41 @@ The sample apps work immediately without any Azure or Entra ID configuration. Th
 
 > **Note:** The "Sign In" button will fail until you complete Exercise 1 (Entra ID app registration). The API endpoints are fully functional without authentication in dev mode.
 
+### Bootstrap Entra ID App Registrations (PowerShell)
+
+[scripts/setup-entra-apps.ps1](scripts/setup-entra-apps.ps1) is an idempotent PowerShell helper that creates the SPA and API app registrations against the tenant you are currently logged in to with the Azure CLI. It is the fastest path through Exercise 1 if you prefer scripting over the Azure Portal.
+
+What it does today (Phase 1):
+
+- Verifies `az` is installed and you are signed in (`az login`).
+- Acquires a Microsoft Graph access token and calls Graph directly via `Invoke-RestMethod` (no `az rest` quoting issues on Windows).
+- Creates the **API app** and sets its Application ID URI to `api://<appId>`.
+- Creates the **SPA app** and configures its SPA platform redirect URI (default `http://localhost:4200`).
+- On re-run, looks each app up by `displayName` and reuses it instead of creating duplicates. Every step is a no-op if already configured.
+
+Usage:
+
+```powershell
+# Sign in to the tenant where the apps should live
+az login --tenant <tenantId>
+
+# Bootstrap both app registrations
+.\scripts\setup-entra-apps.ps1 `
+    -SpaName "Evidence Portal SPA" `
+    -ApiName "Evidence Portal API"
+
+# Optional: capture the resulting IDs for downstream automation (e.g. deploy.ps1)
+.\scripts\setup-entra-apps.ps1 `
+    -SpaName "Evidence Portal SPA" `
+    -ApiName "Evidence Portal API" `
+    -RedirectUri "https://my-spa.azurewebsites.net" `
+    -OutputFile ".\.entra-apps.json"
+```
+
+The script returns and prints `tenantId`, `apiAppId`, `apiObjectId`, `identifierUri`, `spaAppId`, `spaObjectId`, and `redirectUri`. Plug `tenantId`, `apiAppId`, and `spaAppId` into [`environment.ts`](sample-app/spa/src/environments/environment.ts) and [`application.properties`](sample-app/api/src/main/resources/application.properties) (or pass them to [scripts/deploy.ps1](scripts/deploy.ps1)).
+
+> **Phase 2 (planned):** the same script will be extended via Microsoft Graph to expose the `Evidence.Read` scope, define `CaseReader` / `CaseAdmin` app roles, add the SPA's delegated permission on the API, pre-authorize the SPA, and grant tenant admin consent. Until then, complete those steps in the Azure Portal as described in [Exercise 1](workshop/guides/exercise-1-app-registrations.md).
+
 ### Workshop Exercises
 
 Follow these exercises in order for the full 3-hour workshop experience:
@@ -125,7 +160,8 @@ msal-java/
 │   ├── start.sh            # Start both apps locally (macOS/Linux)
 │   ├── deploy.ps1          # Full Azure deployment (PowerShell)
 │   ├── deploy.sh           # Full Azure deployment (Bash)
-│   ├── setup-entra-apps.sh # Automate app registrations
+│   ├── setup-entra-apps.ps1  # Idempotent app registration bootstrap (PowerShell, Graph API)
+│   ├── setup-entra-apps.sh   # Automate app registrations (Bash, az CLI)
 │   └── configure-app-settings.sh  # Post-deploy configuration
 ├── docs/
 │   └── production-hardening.md  # PE, VNet, DNS for production
