@@ -427,40 +427,91 @@ msal-java/
 
 ## Multi-tenant App
 
-The single-tenant `Evidence Portal SPA` registration is the one the workshop deploys by default. Alongside it, a multi-tenant counterpart — `Evidence Portal Multi-Tenant SPA` (client id `0713f130-110b-4982-9ce3-8c9227935ca0`) — has been registered in the home tenant so external Entra ID tenants can be onboarded incrementally. It may eventually replace the single-tenant app once the API and SPA are wired for multi-tenant token validation.
+The single-tenant `Evidence Portal SPA` registration is the one the workshop deploys by default. Alongside it, a multi-tenant counterpart — `Evidence Portal Multi-Tenant SPA` — has been registered in the home tenant so external Entra ID tenants can be onboarded incrementally. It may eventually replace the single-tenant app once the API and SPA are wired for multi-tenant token validation.
+
+### Identifiers (verified 2026-05-01)
+
+| Item | Value |
+| --- | --- |
+| Application (client) id | `0713f130-110b-4982-9ce3-8e9227935ca0` |
+| Application object id | `25027aaf-05ce-4257-a574-405a50d91a46` |
+| Display name | `Evidence Portal Multi-Tenant SPA` |
+| `signInAudience` | `AzureADMultipleOrgs` |
+| Home tenant id | `aa93b9d9-037d-4f08-a26d-783cff0e2369` (`MngEnvMCAP675646.onmicrosoft.com` — surfaced in the portal as *Contoso*) |
+
+> Always verify the AppId by reading the manifest, not by re-typing from the portal address bar. `c` and `e` are visually almost identical in the portal URL and a one-character transposition causes hours of `AADSTS700016` ("application not found") chasing. Quick check from the home tenant:
+>
+> ```powershell
+> az rest --method GET `
+>   --uri "https://graph.microsoft.com/v1.0/applications/25027aaf-05ce-4257-a574-405a50d91a46" `
+>   --query "{name:displayName, appId:appId, audience:signInAudience}" -o table
+> ```
 
 ### Onboard a tenant
 
-Two things must be true before users in tenant **T** can sign in:
+Three things must be true before users in tenant **T** can sign in:
 
-1. **T is on the allow-list.** On the registration's *Authentication → Supported accounts* blade, *Allow only certain tenants (Preview)* is selected and T's tenant id is listed under *Allowed tenants*. The home tenant where the app is registered is always allowed implicitly.
-2. **A service principal for the app exists in T.** Until a user signs in or an admin consents in T, there is no service principal there, no user/group assignment is possible, and no app role can be granted.
+1. **A service principal for the app exists in T.** Until a user signs in or an admin consents in T, there is no service principal there, no user/group assignment is possible, and no app role can be granted.
+2. **The app object has at least one SPA redirect URI** registered on the home-tenant registration. Without one, the post-consent redirect fails with `AADSTS500113: No reply address is registered for the application` even though the consent itself succeeded.
+3. *(Optional — only if the registration is gated by *Allow only certain tenants (Preview)*)* T's tenant id is listed under *Allowed tenants*. The home tenant is always allowed implicitly. The current registration is **not** gated, so this requirement is currently dormant.
 
-`devopsabcs.com` (`a34c69c7-8959-474a-9690-e98bfb0b55c6`) has already been added to the allow-list. Currently allowed tenants:
+`devopsabcs.com` (`a34c69c7-8959-474a-9690-e98bfb0b55c6`) has been onboarded successfully. Currently consented tenants:
 
 | Tenant id | Notes |
 | --- | --- |
-| `aa93b9d9-037d-4f08-a26d-783cff0e2369` | Home tenant where the registration lives |
-| `cddc1229-ac2a-4b97-b78a-0e5cacb5865c` | `MngEnvMCAP675646.onmicrosoft.com` (workshop sandbox) |
-| `a34c69c7-8959-474a-9690-e98bfb0b55c6` | `devopsabcs.com` |
+| `aa93b9d9-037d-4f08-a26d-783cff0e2369` | Home tenant. Also hosts the workshop Azure subscription `ME-MngEnvMCAP675646-emknafo-1`. |
+| `a34c69c7-8959-474a-9690-e98bfb0b55c6` | `devopsabcs.com`. SP id in target tenant: `8f504d8c-0130-485d-813f-771742ce1ade`. |
 
 Pick the option below that matches the level of access available in the target tenant.
+
+#### Prerequisite — register at least one SPA redirect URI on the app object
+
+This is a one-time setup against the home-tenant app object. Without it, every consent attempt ends with `AADSTS500113: No reply address is registered for the application`. Run from a session signed into the home tenant.
+
+PowerShell mangles inline single-quoted multiline JSON before it reaches `az rest`, so write the body to a file first:
+
+```powershell
+$objectId = "25027aaf-05ce-4257-a574-405a50d91a46"
+
+@{
+  spa = @{
+    redirectUris = @(
+      "http://localhost:4200",
+      "https://app-evidence-spa-workshop.azurewebsites.net"
+    )
+  }
+} | ConvertTo-Json -Depth 5 | Set-Content -Path .\spa-redirects.json -Encoding utf8
+
+az rest --method PATCH `
+  --uri "https://graph.microsoft.com/v1.0/applications/$objectId" `
+  --headers "Content-Type=application/json" `
+  --body "@spa-redirects.json"
+
+# Verify (HTTP 204 returns no body on success; this GET confirms the change)
+az rest --method GET `
+  --uri "https://graph.microsoft.com/v1.0/applications/$objectId" `
+  --query "spa" -o json
+
+Remove-Item .\spa-redirects.json
+```
 
 #### Option A — Admin consent URL (recommended)
 
 A Global Administrator (or Privileged Role / Cloud Application Administrator) of the target tenant opens the link below **while signed into that tenant**. It instantiates the service principal and grants tenant-wide consent for any *Admin consent required* delegated scopes.
 
 ```text
-https://login.microsoftonline.com/{tenantId}/adminconsent?client_id=0713f130-110b-4982-9ce3-8c9227935ca0&redirect_uri=https://app-evidence-spa-workshop.azurewebsites.net
+https://login.microsoftonline.com/{tenantId}/adminconsent?client_id=0713f130-110b-4982-9ce3-8e9227935ca0
 ```
 
 For `devopsabcs.com` specifically:
 
 ```text
-https://login.microsoftonline.com/a34c69c7-8959-474a-9690-e98bfb0b55c6/adminconsent?client_id=0713f130-110b-4982-9ce3-8c9227935ca0&redirect_uri=https://app-evidence-spa-workshop.azurewebsites.net
+https://login.microsoftonline.com/a34c69c7-8959-474a-9690-e98bfb0b55c6/adminconsent?client_id=0713f130-110b-4982-9ce3-8e9227935ca0
 ```
 
-The `redirect_uri` must match a SPA redirect URI registered on the app. Drop the parameter to land on the generic Entra consent confirmation page instead.
+Use the **`/adminconsent`** path, not `/v2.0/adminconsent`. The v2 endpoint requires a `scope` parameter and fails with `AADSTS900144: The request body must contain the following parameter: 'scope'` if it's omitted. The non-v2 endpoint consents to every permission declared in the app manifest with no extra parameters.
+
+Optionally append `&redirect_uri=https://app-evidence-spa-workshop.azurewebsites.net` to land on the deployed SPA after consent. The `redirect_uri` must exactly match a SPA redirect URI registered on the app (see the prerequisite above). Drop the parameter to land on the generic Entra consent confirmation page instead.
 
 #### Option B — User sign-in
 
@@ -472,7 +523,7 @@ Run from a session signed in as a Global Administrator of the target tenant. The
 
 ```powershell
 Connect-MgGraph -TenantId <targetTenantId> -Scopes "Application.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
-New-MgServicePrincipal -AppId 0713f130-110b-4982-9ce3-8c9227935ca0
+New-MgServicePrincipal -AppId 0713f130-110b-4982-9ce3-8e9227935ca0
 ```
 
 The service principal then appears under *Enterprise applications* in the target tenant. Tenant-wide consent can be granted from *Permissions → Grant admin consent*.
@@ -484,23 +535,34 @@ If the Microsoft Graph PowerShell module is not installed, use `az` instead — 
 ```powershell
 # 1. Confirm the registration is actually multi-tenant (run in the home tenant).
 az login --tenant aa93b9d9-037d-4f08-a26d-783cff0e2369 --allow-no-subscriptions
-az ad app show --id 0713f130-110b-4982-9ce3-8c9227935ca0 `
+az ad app show --id 0713f130-110b-4982-9ce3-8e9227935ca0 `
   --query "{name:displayName, appId:appId, signInAudience:signInAudience}" -o table
 # Expected: signInAudience = AzureADMultipleOrgs. If it shows AzureADMyOrg, fix it:
-az ad app update --id 0713f130-110b-4982-9ce3-8c9227935ca0 --sign-in-audience AzureADMultipleOrgs
+az ad app update --id 0713f130-110b-4982-9ce3-8e9227935ca0 --sign-in-audience AzureADMultipleOrgs
 
 # 2. Switch to the target tenant and check whether the service principal already exists.
 az login --tenant <targetTenantId> --allow-no-subscriptions
-az ad sp list --filter "appId eq '0713f130-110b-4982-9ce3-8c9227935ca0'" `
+az ad sp list --filter "appId eq '0713f130-110b-4982-9ce3-8e9227935ca0'" `
   --query "[].{name:displayName, appId:appId, id:id}" -o table
 
 # 3. If the previous command returned nothing, install the service principal.
-az ad sp create --id 0713f130-110b-4982-9ce3-8c9227935ca0
+az ad sp create --id 0713f130-110b-4982-9ce3-8e9227935ca0
 ```
 
-Common gotcha: signing in to the wrong tenant in step 1 returns `Resource '...' does not exist` from `az ad app show`. The home tenant for this registration is `aa93b9d9-037d-4f08-a26d-783cff0e2369`; do not confuse it with the workshop sandbox tenant `cddc1229-...`.
+Common gotchas:
 
-If `az ad sp create` fails with *"does not reference a valid application object"* even though `signInAudience` is `AzureADMultipleOrgs`, the *Allow only certain tenants (Preview)* gate on the registration is blocking provisioning. Workaround: in the home tenant portal, flip the registration to *Allow all tenants* temporarily, run `az ad sp create` from the target tenant, then flip the gate back to *Allow only certain tenants* with the target tenant listed — the service principal persists.
+- `az ad app show` returning `Resource '...' does not exist` can mean either (a) you signed in to the wrong tenant, or (b) you signed in to the right tenant but your account has no directory role there — Microsoft Graph returns 404 for both "missing" and "forbidden". Subscription Owner is **not** a directory role; you also need *Cloud Application Administrator* (or higher) in the home tenant to read the registration.
+- Step 3 (`az ad sp create`) requires *Cloud Application Administrator*, *Application Administrator*, or *Global Administrator* in the **target** tenant. A guest account without a directory role gets `Insufficient privileges to complete the operation` — in that case fall back to Option A and have a target-tenant admin click the consent URL.
+- If `az ad sp create` fails with *"does not reference a valid application object"*, the AppId is almost certainly mistyped. Re-verify it by reading the manifest from the home tenant (see the *Identifiers* table above) before assuming a more exotic cause like the *Allow only certain tenants (Preview)* gate.
+
+### Common AADSTS errors hit during onboarding
+
+| Code | Symptom | Root cause |
+| --- | --- | --- |
+| `AADSTS700016` | `Application with identifier '<appId>' was not found in the directory '<tenant>'` | (1) AppId typo — `c`/`e` confusion in the portal URL is the most common cause. Verify by reading the app manifest by *object id*, not by AppId. (2) Service principal not yet provisioned in the target tenant — run `az ad sp create --id <appId>` from a target-tenant admin session. |
+| `AADSTS900144` | `The request body must contain the following parameter: 'scope'` | You hit `/{tenantId}/v2.0/adminconsent` instead of `/{tenantId}/adminconsent`. Drop the `/v2.0/` segment. |
+| `AADSTS500113` | `No reply address is registered for the application` | The home-tenant app object has no SPA redirect URIs. Add at least one via the prerequisite Graph PATCH above. |
+| `AADSTS50020` | User from tenant T cannot sign in to a tenant-pinned authority | SPA `auth-config.ts` is using `https://login.microsoftonline.com/{homeTenantId}` instead of `/common` or `/organizations`. See the code-changes section below. |
 
 ### After consent
 
@@ -509,13 +571,16 @@ Once the service principal exists in the foreign tenant, an admin in that tenant
 - Toggle *Assignment required?* under *Properties* if user/group gating is desired.
 - Assign users or groups to the `CaseReader` and `CaseAdmin` app roles under *Users and groups*. App roles are defined on the home-tenant registration but assigned in each foreign tenant's enterprise application.
 
+The consent screen currently lists only **"Sign in and read user profile"**. That's because the multi-tenant registration's `requiredResourceAccess` only declares the default `User.Read` scope — the API's `Evidence.Read` scope has not yet been added. Adding it would surface a second permission line and grant API access at the same admin-consent click.
+
 ### What still needs to change in code to fully support multi-tenant
 
-The registration is multi-tenant, but the SPA and API are not yet configured for it. The following changes are required before tokens issued by `devopsabcs.com` (or any other allowed tenant) will be accepted end to end:
+The registration is multi-tenant and consent works end to end, but the SPA and API are not yet configured to accept tokens from foreign tenants. The following changes are required before tokens issued by `devopsabcs.com` (or any other consented tenant) will be honoured by the application itself:
 
 - **SPA `auth-config.ts`**: change the `authority` from a tenant-specific `https://login.microsoftonline.com/{homeTenantId}` to `https://login.microsoftonline.com/common` (any account) or `https://login.microsoftonline.com/organizations` (work/school accounts only). A tenant-pinned authority will fail with `AADSTS50020` for users from other tenants.
-- **API JWT validation** ([SecurityConfig.java](sample-app/api/src/main/java/com/example/evidence/config/SecurityConfig.java)): the issuer is currently a single tenant URL. For multi-tenant, validate against the `https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration` discovery document (which exposes the multi-tenant signing keys) and **enforce the allow-list yourself** by reading the `tid` claim and comparing it to the same set of tenant ids configured in Entra. Without that check, any tenant on the public internet that has consented could mint valid tokens.
+- **API JWT validation** ([SecurityConfig.java](sample-app/api/src/main/java/com/example/evidence/config/SecurityConfig.java)): the issuer is currently a single tenant URL. For multi-tenant, validate against the `https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration` discovery document (which exposes the multi-tenant signing keys) and **enforce the allow-list yourself** by reading the `tid` claim and comparing it to a configured set of allowed tenant ids. Without that check, any tenant on the public internet that has consented could mint valid tokens.
 - **API app registration**: the resource server (`Evidence API`) must also be set to *Multiple Entra ID tenants* in *Authentication → Supported accounts*, otherwise tokens with `aud=api://{apiClientId}` will not be issued for users outside the home tenant.
+- **Multi-tenant SPA `requiredResourceAccess`**: add the API's `Evidence.Read` delegated scope so admin consent in foreign tenants covers it in one click instead of requiring a second consent flow against the API.
 
 Until those three changes ship, the multi-tenant registration is a placeholder — it can be onboarded into other tenants for a smoke test, but `acquireTokenSilent` and the API JWT validator will reject the resulting tokens.
 
