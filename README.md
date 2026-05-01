@@ -466,6 +466,9 @@ ADLS Gen2 (HNS-enabled) accounts expose two endpoints: `*.blob.core.windows.net`
 
 The workshop already ships with a hardened-by-default network and identity posture: ADLS Gen2 with shared keys disabled, public network access still `Enabled` but `defaultAction=Deny` with a `VirtualNetworkRule` for the App Service subnet, App Service Regional VNet integration, a Private Endpoint on the storage `dfs` sub-resource, and Managed Identity + RBAC end-to-end. For the optional next-step controls (Front Door + WAF, App Service Private Endpoints, customer-managed keys, multi-region failover), see the [Production Hardening Guide](docs/production-hardening.md).
 
+> [!IMPORTANT]
+> This is a secure workshop architecture and a strong production baseline, but it is not the maximum-security production pattern yet. The API App Service is still publicly reachable and relies on Entra ID JWT validation, scopes, roles, and CORS for request-level protection. A higher-security production design should also restrict API ingress with App Service access restrictions, an API private endpoint, Azure Front Door Premium or Application Gateway with WAF, or API Management depending on the deployment model. Keep the storage deployer-IP allow-list temporary and narrow; the steady-state storage path should be Managed Identity over the App Service subnet rule and the ADLS Gen2 `dfs` Private Endpoint.
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
