@@ -50,7 +50,9 @@ if (-not (Test-Path $AbsVendorDir)) {
 }
 
 $zipUrl  = "https://designsystem.ontario.ca/dist/ontario-design-system-dist-$Version.zip"
-$zipPath = Join-Path $env:TEMP "ontario-design-system-$Version.zip"
+# Use [System.IO.Path]::GetTempPath() so this works on Linux GitHub runners
+# (where $env:TEMP is undefined) as well as Windows/macOS.
+$zipPath = Join-Path ([System.IO.Path]::GetTempPath()) "ontario-design-system-$Version.zip"
 
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 $ProgressPreference = 'SilentlyContinue'
