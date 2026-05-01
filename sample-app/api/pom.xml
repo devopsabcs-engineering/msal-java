@@ -32,11 +32,15 @@
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
 
-        <!-- Azure Storage -->
+        <!-- Azure ADLS Gen2 (DataLake) — used over a Private Endpoint with
+             Managed Identity (DefaultAzureCredential). Shared keys are
+             disabled on the storage account, so OAuth + RBAC is the only
+             auth path. The DataLake SDK targets the *.dfs.core.windows.net
+             endpoint (resolved via privatelink DNS inside the VNet). -->
         <dependency>
             <groupId>com.azure</groupId>
-            <artifactId>azure-storage-blob</artifactId>
-            <version>12.33.3</version>
+            <artifactId>azure-storage-file-datalake</artifactId>
+            <version>12.23.0</version>
         </dependency>
         <dependency>
             <groupId>com.azure</groupId>

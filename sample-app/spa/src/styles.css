@@ -1,319 +1,270 @@
 /* ==========================================================================
-   Global styles — Justice Evidence Portal
+   Justice Evidence Portal — application overrides on top of the
+   Ontario Design System (vendor/ontario-design-system/styles/ds-theme.min.css
+   is loaded via index.html so its font/icon paths resolve correctly).
    ========================================================================== */
 
-/* --- Reset & Base --- */
-html, body {
-  height: 100%;
-  margin: 0;
-  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  font-size: 15px;
-  line-height: 1.6;
-  color: #1a1a1a;
-  background-color: #f0f2f5;
-}
-
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-a {
-  color: #0078d4;
-  text-decoration: none;
-}
-a:hover {
-  color: #005a9e;
+/* --- Skip-link visible on focus only --- */
+.ontario-show-on-focus {
+  position: absolute;
+  left: -9999px;
+  top: 1rem;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  z-index: 1000;
   text-decoration: underline;
 }
-
-h1, h2, h3 {
-  margin-top: 0;
-  color: #0f1b2d;
+.ontario-show-on-focus:focus {
+  left: 1rem;
 }
 
-/* --- Navbar --- */
-.navbar {
+/* --- Application header layout --- */
+.ontario-application-header-container {
+  background: #1a1a1a;
+  color: #fff;
+  border-bottom: 4px solid #ffd440;   /* Ontario yellow accent line */
+}
+.ontario-application-header {
+  padding: 1rem 0;
+}
+.ontario-application-header__logo img {
+  height: 36px;
+  display: block;
+}
+
+.ontario-text-right {
+  text-align: right;
+}
+
+.ontario-application-header__signed-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 1rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+.ontario-application-header__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: #ffd440;          /* Ontario yellow */
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.ontario-application-header__user-name {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tertiary button reads on the dark header */
+.ontario-application-header__sign-out {
+  color: #fff;
+  border-color: #fff;
+  background: transparent;
+}
+.ontario-application-header__sign-out:hover,
+.ontario-application-header__sign-out:focus {
+  color: #1a1a1a;
+  background: #fff;
+}
+
+/* --- Subheader (application title + main nav) --- */
+.ontario-application-subheader-menu__container {
+  background: #f2f2f2;
+  border-bottom: 1px solid #cccccc;
+}
+.ontario-application-subheader__container {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  height: 56px;
-  background: linear-gradient(135deg, #0f1b2d 0%, #1b3a5c 100%);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
 }
-
-.navbar-brand {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #fff !important;
-  letter-spacing: 0.5px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.navbar-brand::before {
-  content: "🛡️";
-  font-size: 1.3rem;
-}
-.navbar-brand:hover {
-  text-decoration: none;
-  opacity: 0.9;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.nav-links a {
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 500;
-  padding: 6px 12px;
-  border-radius: 6px;
-  transition: background 0.2s, color 0.2s;
-}
-.nav-links a:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  text-decoration: none;
-}
-
-/* --- Buttons --- */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 20px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
-}
-.btn:active {
-  transform: scale(0.97);
-}
-
-.btn-primary {
-  background: #0078d4;
-  color: #fff;
-}
-.btn-primary:hover {
-  background: #005a9e;
-  box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.btn-sm {
-  padding: 5px 14px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: #0078d4;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.btn-sm:hover {
-  background: #005a9e;
-}
-
-/* --- Content Area --- */
-.content {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 32px 24px;
-}
-
-/* --- Card --- */
-.card {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
-  padding: 32px;
-  margin-bottom: 24px;
-}
-
-/* --- Home --- */
-.home-container {
-  text-align: center;
-  padding-top: 40px;
-}
-.home-container h1 {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-.home-container > p {
-  color: #555;
-  font-size: 1.05rem;
-  margin-bottom: 32px;
-}
-
-.sign-in-prompt {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
-  padding: 40px;
-  max-width: 420px;
-  margin: 0 auto;
-}
-.sign-in-prompt p {
-  margin-bottom: 20px;
-  color: #444;
-}
-
-.user-info {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
-  padding: 32px;
-  max-width: 480px;
-  margin: 0 auto;
-  text-align: left;
-}
-.user-info p {
-  margin: 8px 0;
-}
-
-/* --- Tables --- */
-.case-table, .evidence-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
-  margin-top: 16px;
-}
-
-.case-table th, .evidence-table th {
-  background: #f5f7fa;
-  color: #0f1b2d;
-  font-weight: 600;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 12px 16px;
-  text-align: left;
-  border-bottom: 2px solid #e1e5eb;
-}
-
-.case-table td, .evidence-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid #eef0f3;
-  font-size: 0.9rem;
-}
-
-.case-table tbody tr:hover, .evidence-table tbody tr:hover {
-  background: #f0f5ff;
-}
-
-.case-table tbody tr:last-child td,
-.evidence-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* --- Case Detail --- */
-.case-detail-container dl {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 8px 16px;
-  background: #fff;
-  border-radius: 10px;
-  padding: 24px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
-  margin-bottom: 24px;
-}
-.case-detail-container dt {
-  font-weight: 600;
-  color: #555;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-.case-detail-container dd {
+.ontario-application-subheader__heading {
   margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.ontario-application-subheader__heading a {
+  color: #1a1a1a;
+  text-decoration: none;
+}
+.ontario-application-subheader__menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 1.5rem;
+}
+.ontario-application-subheader__menu a {
+  color: #1a1a1a;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.25rem 0;
+  border-bottom: 3px solid transparent;
+}
+.ontario-application-subheader__menu a:hover,
+.ontario-application-subheader__item--active {
+  border-bottom-color: #1a1a1a;
+}
+
+/* --- Main content padding --- */
+.ontario-main-content {
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+  min-height: 50vh;
+}
+
+/* --- Page sections --- */
+.page-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #1a1a1a;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.user-claims-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+}
+.user-claims-grid dt {
+  font-weight: 600;
+  color: #4d4d4d;
+}
+.user-claims-grid dd {
+  margin: 0;
+}
+
+/* --- Tile grid (home) --- */
+.feature-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2.5rem;
+}
+.feature-tile {
+  background: #fff;
+  border: 1px solid #cccccc;
+  padding: 1.5rem;
+  text-decoration: none;
+  color: #1a1a1a;
+  display: block;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.feature-tile:hover {
+  border-color: #1a1a1a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  text-decoration: none;
+}
+.feature-tile h3 {
+  margin: 0 0 0.5rem;
+  color: #0066cc;
+  font-size: 1.125rem;
+}
+.feature-tile p {
+  margin: 0;
+  color: #4d4d4d;
+}
+
+/* --- Data tables --- */
+.case-table,
+.evidence-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+.case-table th,
+.evidence-table th {
+  background: #1a1a1a;
+  color: #fff;
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.case-table td,
+.evidence-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+.case-table tbody tr:nth-child(even),
+.evidence-table tbody tr:nth-child(even) {
+  background: #f8f8f8;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #e6e6e6;
   color: #1a1a1a;
 }
+.status-pill.status-open    { background: #d8eecc; color: #14672f; }
+.status-pill.status-pending { background: #fff1c2; color: #6a4f00; }
+.status-pill.status-closed  { background: #e6e6e6; color: #4d4d4d; }
 
-/* --- Status Badges (optional enhancement via classes) --- */
-
-/* --- Unauthorized --- */
-.unauthorized-container {
-  text-align: center;
-  padding-top: 80px;
+/* --- Footer (default Ontario footer pattern, slimmed down) --- */
+.ontario-footer--default {
+  background: #1a1a1a;
+  color: #fff;
+  padding: 2rem 0;
+  margin-top: 3rem;
 }
-.unauthorized-container h2 {
-  color: #c4314b;
-  font-size: 1.6rem;
+.ontario-footer__links-container ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: 0;
+  margin: 0 0 1rem;
 }
-.unauthorized-container p {
-  color: #555;
-  margin-bottom: 24px;
+.ontario-footer__links {
+  color: #fff;
+  text-decoration: underline;
 }
-
-/* --- Error text --- */
-.error {
-  color: #c4314b;
-  background: #fdf2f4;
-  border: 1px solid #f5c6cb;
-  padding: 12px 16px;
-  border-radius: 6px;
-}
-
-/* --- Loading --- */
-p:has(+ .error), p:only-child {
-  color: #666;
+.ontario-footer__copyright {
+  font-size: 0.875rem;
+  color: #cccccc;
 }
 
-/* --- Feature Cards (Home) --- */
-.features {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
-  margin-top: 48px;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
+/* --- Loading + error state helpers --- */
+.app-loading {
+  color: #4d4d4d;
+  font-style: italic;
 }
-.feature-card {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
-  padding: 28px 20px;
-  text-align: center;
-  transition: transform 0.2s, box-shadow 0.2s;
+.app-error-callout {
+  border: 2px solid #cd0000;
+  background: #fcdfdf;
+  color: #1a1a1a;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
 }
-.feature-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.06);
-}
-.feature-icon {
-  font-size: 2rem;
-  margin-bottom: 12px;
-}
-.feature-card h3 {
-  font-size: 1rem;
-  margin-bottom: 6px;
-}
-.feature-card p {
-  color: #666;
-  font-size: 0.85rem;
-  margin: 0;
+
+/* --- Mobile tweaks --- */
+@media (max-width: 599px) {
+  .ontario-application-header__user-name {
+    display: none;
+  }
+  .ontario-application-subheader__container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

@@ -60,6 +60,9 @@ if (-not (Test-Path (Join-Path $SpaDir 'node_modules'))) {
     Pop-Location
 }
 
+# --- Ensure Ontario Design System assets are present ---
+& (Join-Path $PSScriptRoot 'fetch-ontario-design-system.ps1')
+
 # --- Start API (Spring Boot with dev profile) ---
 Write-Host 'Starting API on http://localhost:8080 ...'
 $currentPath = $env:Path

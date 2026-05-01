@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { MsalService } from '@azure/msal-angular';
 import { loginRequest } from '../../auth-config';
 import { EvidenceService } from '../../services/evidence.service';
@@ -8,7 +9,7 @@ import { UserClaims } from '../../models/case.model';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './home.component.html',
 })
 export class HomeComponent implements OnInit {

@@ -23,8 +23,13 @@ param apiBaseUrl string
 @description('Application Insights connection string.')
 param appInsightsConnectionString string
 
+@description('Resource ID of the subnet for App Service Regional VNet integration. Empty string disables integration.')
+param virtualNetworkSubnetId string = ''
+
 @description('Resource tags.')
 param tags object = {}
+
+var enableVnetIntegration = !empty(virtualNetworkSubnetId)
 
 resource spaApp 'Microsoft.Web/sites@2023-12-01' = {
   name: name
@@ -36,12 +41,15 @@ resource spaApp 'Microsoft.Web/sites@2023-12-01' = {
   properties: {
     serverFarmId: appServicePlanId
     httpsOnly: true
+    virtualNetworkSubnetId: enableVnetIntegration ? virtualNetworkSubnetId : null
+    publicNetworkAccess: 'Enabled'
     siteConfig: {
       linuxFxVersion: 'NODE|20-lts'
       appCommandLine: 'pm2 serve /home/site/wwwroot --spa --no-daemon'
       alwaysOn: true
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
+      vnetRouteAllEnabled: enableVnetIntegration
       appSettings: [
         {
           name: 'MSAL_CLIENT_ID'

@@ -7,6 +7,9 @@
 .copilot-tracking/
 assets-hidden/
 
+# --- Vendor packages (downloaded by scripts/fetch-ontario-design-system.ps1) ---
+sample-app/spa/public/vendor/
+
 # --- Node / Angular ---
 node_modules/
 dist/

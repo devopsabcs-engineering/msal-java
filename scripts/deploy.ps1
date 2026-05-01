@@ -11,16 +11,26 @@
          delegating to setup-entra-apps.ps1 (no-op on re-run).
       3. Generates a globally-unique storage account name.
       4. Creates the resource group if needed.
-      5. Deploys infra (App Service Plan, two App Services, Storage,
-         App Insights, Managed Identity role assignments) via Bicep.
-      6. Patches environment.prod.ts with the deployed App Service URLs +
+      5. Detects the deployer's public IP + Entra principal objectId.
+      6. Deploys infra (VNet with snet-app + snet-pe, App Service Plan,
+         two App Services with Regional VNet integration, hardened ADLS
+         Gen2 storage with shared keys disabled and publicNetworkAccess
+         off, Private Endpoint on the dfs sub-resource, Private DNS Zone
+         privatelink.dfs.<storage suffix>, App Insights, MI role
+         assignments) via Bicep. The deployer IP is added to storage
+         networkAcls only for the duration of the seeding step.
+      7. Patches environment.prod.ts with the deployed App Service URLs +
          App Insights connection string + tenant/client IDs.
-      7. Builds the Angular SPA (production) and packages the Spring Boot API.
-      8. Deploys both artifacts to App Service.
-      9. Adds the deployed SPA URL as a SPA platform redirect URI on the
+      8. Builds the Angular SPA (production) and packages the Spring Boot API.
+      9. Deploys both artifacts to App Service.
+     10. Adds the deployed SPA URL as a SPA platform redirect URI on the
          SPA app registration (via Graph).
-     10. Uploads the bundled sample evidence PDFs to the storage container.
-     11. Runs smoke verification: API /api/cases responds, SPA returns 200.
+     11. Uploads the bundled sample evidence PDFs over OAuth (Storage Blob
+         Data Contributor RBAC, no shared keys) to the storage container.
+     12. Re-deploys the storage module with deployerIp='' to flip
+         publicNetworkAccess back to Disabled (App Services keep working
+         via the Private Endpoint).
+     13. Runs smoke verification: API /api/cases responds, SPA returns 200.
 
     All steps are idempotent and safe to re-run.
 
@@ -152,9 +162,36 @@ if ($storageAccountName.Length -gt 24) { $storageAccountName = $storageAccountNa
 Write-Host "    Storage account name: $storageAccountName"
 
 # ---------------------------------------------------------------------------
-# Step 3 — Bicep deployment
+# Step 3 — Bicep deployment (with temporary deployer IP allow-listing on storage)
 # ---------------------------------------------------------------------------
 Write-Section 'Step 3: Deploying infrastructure (Bicep)'
+
+# Discover the deployer's public IP so the Bicep storage module can punch a
+# single, narrowly-scoped hole through the otherwise-Deny networkAcls. The
+# seeding step (Step 9) needs OAuth uploads from the workstation; once that
+# is done we redeploy with deployerIp='' to fully close the storage account.
+$deployerIp = ''
+try {
+    $deployerIp = (Invoke-RestMethod -Uri 'https://api.ipify.org?format=text' -TimeoutSec 5).Trim()
+} catch {
+    Write-Warning "    Could not detect deployer public IP (storage will stay fully private; sample evidence upload may fail)."
+}
+if ($deployerIp) { Write-Host "    Deployer public IP: $deployerIp (added to storage networkAcls until lockdown)" }
+
+# Deployer principal objectId (for Storage Blob Data Contributor RBAC). With
+# allowSharedKeyAccess=false, the upload step in Step 9 must use OAuth, so
+# the signed-in user needs the Contributor role at the storage scope.
+$deployerObjectId  = (az ad signed-in-user show --query id -o tsv 2>$null) ?? ''
+$deployerSpType    = 'User'
+if (-not $deployerObjectId) {
+    # Fall back to a service principal context (e.g. CI).
+    $deployerObjectId = (az account show --query 'user.name' -o tsv 2>$null)
+    if ($deployerObjectId) {
+        $sp = az ad sp show --id $deployerObjectId --query id -o tsv 2>$null
+        if ($sp) { $deployerObjectId = $sp; $deployerSpType = 'ServicePrincipal' } else { $deployerObjectId = '' }
+    }
+}
+if ($deployerObjectId) { Write-Host "    Deployer principal: $deployerObjectId ($deployerSpType)" }
 
 $deployJson = az deployment group create `
     --resource-group $ResourceGroup `
@@ -166,6 +203,9 @@ $deployJson = az deployment group create `
                  spaClientId=$spaClientId `
                  apiClientId=$apiClientId `
                  tenantId=$tenantId `
+                 deployerIp=$deployerIp `
+                 deployerPrincipalId=$deployerObjectId `
+                 deployerPrincipalType=$deployerSpType `
     --query 'properties.outputs' `
     -o json
 
@@ -227,6 +267,7 @@ Write-Section 'Step 5: Adding deployed SPA URL as redirect URI on SPA app reg'
 # ---------------------------------------------------------------------------
 if (-not $SkipBuild) {
     Write-Section 'Step 6: Building Angular SPA (production)'
+    & (Join-Path $PSScriptRoot 'fetch-ontario-design-system.ps1')
     Push-Location "$RepoRoot/sample-app/spa"
     try {
         if (-not (Test-Path 'node_modules')) { npm ci }
@@ -289,36 +330,21 @@ az webapp deploy `
 Write-Host "    API deployed: $($apiJar.Name)"
 
 # ---------------------------------------------------------------------------
-# Step 9 — Upload sample evidence to blob storage
+# Step 9 — Upload sample evidence to ADLS Gen2 (OAuth, no shared keys)
 # ---------------------------------------------------------------------------
 if (-not $SkipUpload) {
-    Write-Section "Step 9: Uploading sample evidence files to $storageAccountName/evidence"
+    Write-Section "Step 9: Uploading sample evidence files to $storageAccountName/evidence (OAuth)"
 
-    # Ensure the current user can write to the storage account via AAD auth.
-    # 'Storage Blob Data Contributor' is required for `--auth-mode login` upload.
-    $sub = az account show --query id -o tsv
-    $signedInUserOid = az ad signed-in-user show --query id -o tsv 2>$null
-    $saId = az storage account show --resource-group $ResourceGroup --name $storageAccountName --query id -o tsv
-    if ($signedInUserOid -and $saId) {
-        $existing = az role assignment list `
-            --assignee $signedInUserOid `
-            --scope $saId `
-            --role 'Storage Blob Data Contributor' `
-            --query '[0].id' -o tsv 2>$null
-        if (-not $existing) {
-            Write-Host "    Granting Storage Blob Data Contributor to current user on $storageAccountName"
-            az role assignment create `
-                --assignee-object-id $signedInUserOid `
-                --assignee-principal-type User `
-                --role 'Storage Blob Data Contributor' `
-                --scope $saId `
-                --output none 2>$null
-            # Allow AAD propagation. Retries below also help.
-            Start-Sleep -Seconds 20
-        }
+    if (-not $deployerObjectId) {
+        Write-Warning "    Deployer principal not detected; the upload may fail. Re-run after `az login`."
+    }
+    if (-not $deployerIp) {
+        Write-Warning "    Deployer IP not detected; storage networkAcls may block this upload."
     }
 
-    # Create the container (idempotent). Retry briefly to absorb RBAC propagation.
+    # The CLI's storage commands work transparently against HNS-enabled
+    # accounts. We use --auth-mode login so no shared keys leave the
+    # workstation. RBAC + IP allow-list were both granted in Step 3.
     for ($i = 1; $i -le 6; $i++) {
         az storage container create `
             --account-name $storageAccountName `
@@ -329,7 +355,6 @@ if (-not $SkipUpload) {
         Start-Sleep -Seconds 10
     }
 
-    # Upload with retries to absorb RBAC propagation.
     $sourceDir = "$RepoRoot/sample-app/api/src/main/resources/data/sample-evidence"
     $uploaded = $false
     for ($i = 1; $i -le 8; $i++) {
@@ -360,9 +385,33 @@ if (-not $SkipUpload) {
 }
 
 # ---------------------------------------------------------------------------
-# Step 10 — Smoke verification
+# Step 10 — Lock down storage (remove deployer IP allow-list)
 # ---------------------------------------------------------------------------
-Write-Section 'Step 10: Smoke verification'
+Write-Section 'Step 10: Locking down storage (removing temporary deployer IP)'
+
+# Re-deploy with deployerIp='' so storage publicNetworkAccess flips back to
+# Disabled. The App Services keep working because they reach storage via
+# the Private Endpoint inside the integrated VNet.
+az deployment group create `
+    --resource-group $ResourceGroup `
+    --template-file "$RepoRoot/infra/main.bicep" `
+    --parameters "$RepoRoot/infra/main.bicepparam" `
+    --parameters environmentName=$Environment `
+                 location=$Location `
+                 storageAccountName=$storageAccountName `
+                 spaClientId=$spaClientId `
+                 apiClientId=$apiClientId `
+                 tenantId=$tenantId `
+                 deployerIp='' `
+                 deployerPrincipalId=$deployerObjectId `
+                 deployerPrincipalType=$deployerSpType `
+    --output none
+Write-Host '    Storage networkAcls now reject all public traffic. App Services reach storage via Private Endpoint.'
+
+# ---------------------------------------------------------------------------
+# Step 11 — Smoke verification
+# ---------------------------------------------------------------------------
+Write-Section 'Step 11: Smoke verification'
 
 # SPA returns 200 (warm-up may take a minute).
 $spaOk = $false

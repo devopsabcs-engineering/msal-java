@@ -246,6 +246,33 @@ function Set-ApiOAuth2Scope {
     return $scopeId
 }
 
+function Set-ApiAccessTokenVersion2 {
+    <#
+        Forces the API app registration to issue v2.0 access tokens. Without this,
+        the default value (1) means MSAL.js (which is v2-only) requests a v2 token
+        but receives a v1-format token whose 'iss' is https://sts.windows.net/<tid>/
+        rather than https://login.microsoftonline.com/<tid>/v2.0 — causing Spring
+        Security's JWT issuer-uri validation to reject every request with 401.
+    #>
+    param([Parameter(Mandatory = $true)] [string]$ObjectId)
+    $app = Get-AppById -ObjectId $ObjectId
+    $current = $null
+    if ($app.api) { $current = $app.api.requestedAccessTokenVersion }
+    if ($current -eq 2) {
+        Write-Host '    requestedAccessTokenVersion already set to 2'
+        return
+    }
+    Write-Host "==> Setting API requestedAccessTokenVersion to 2 (current: $current)"
+    $api = @{}
+    if ($app.api) {
+        $api.oauth2PermissionScopes = $app.api.oauth2PermissionScopes
+        $api.knownClientApplications = $app.api.knownClientApplications
+        $api.preAuthorizedApplications = $app.api.preAuthorizedApplications
+    }
+    $api.requestedAccessTokenVersion = 2
+    Invoke-Graph -Method PATCH -Path "/applications/$ObjectId" -Body @{ api = $api } | Out-Null
+}
+
 function Set-ApiAppRoles {
     param([Parameter(Mandatory = $true)] [string]$ObjectId)
 
@@ -531,6 +558,7 @@ Initialize-GraphHeaders
 $apiApp        = New-OrGetAppRegistration -DisplayName $ApiName
 $identifierUri = Set-ApiIdentifierUri -ObjectId $apiApp.id -AppId $apiApp.appId -CurrentIdentifierUris $apiApp.identifierUris
 $scopeId       = Set-ApiOAuth2Scope    -ObjectId $apiApp.id -ScopeName $ApiScopeName
+Set-ApiAccessTokenVersion2 -ObjectId $apiApp.id
 $roleIds       = Set-ApiAppRoles       -ObjectId $apiApp.id
 
 # --- SPA app + redirect URI(s) ---------------------------------------------

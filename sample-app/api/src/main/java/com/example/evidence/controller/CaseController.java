@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -74,14 +75,24 @@ public class CaseController {
     public Map<String, Object> getCurrentUser(Authentication authentication) {
         Map<String, Object> userInfo = new HashMap<>();
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            String preferredUsername = jwtAuth.getToken().getClaimAsString("preferred_username");
+            String scp = jwtAuth.getToken().getClaimAsString("scp");
+            List<String> scopes = scp == null || scp.isBlank()
+                    ? Collections.emptyList()
+                    : Arrays.asList(scp.trim().split("\\s+"));
+            List<String> roles = jwtAuth.getToken().getClaimAsStringList("roles");
             userInfo.put("name", jwtAuth.getToken().getClaimAsString("name"));
-            userInfo.put("preferred_username", jwtAuth.getToken().getClaimAsString("preferred_username"));
-            userInfo.put("roles", jwtAuth.getToken().getClaimAsStringList("roles"));
-            userInfo.put("scp", jwtAuth.getToken().getClaimAsString("scp"));
+            userInfo.put("email", preferredUsername);
+            userInfo.put("preferred_username", preferredUsername);
+            userInfo.put("roles", roles == null ? Collections.emptyList() : roles);
+            userInfo.put("scopes", scopes);
+            userInfo.put("scp", scp);
         } else {
             userInfo.put("name", "Dev User (no JWT)");
+            userInfo.put("email", "dev@localhost");
             userInfo.put("preferred_username", "dev@localhost");
             userInfo.put("roles", Collections.emptyList());
+            userInfo.put("scopes", Collections.singletonList("Evidence.Read"));
             userInfo.put("scp", "Evidence.Read");
         }
         return userInfo;

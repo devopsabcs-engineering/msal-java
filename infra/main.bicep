@@ -15,9 +15,9 @@ param environmentName string = 'workshop'
 @description('Azure region for all resources. Canada Central recommended for data residency.')
 param location string = 'canadacentral'
 
-@description('App Service Plan SKU. B1 is sufficient for workshop use.')
-@allowed(['B1', 'B2', 'B3', 'S1', 'P1v3'])
-param appServicePlanSku string = 'B1'
+@description('App Service Plan SKU. S1 or higher is required for VNet integration.')
+@allowed(['S1', 'P1v3', 'P2v3', 'P3v3'])
+param appServicePlanSku string = 'S1'
 
 @description('Globally unique storage account name (3-24 lowercase alphanumeric).')
 @minLength(3)
@@ -33,6 +33,16 @@ param apiClientId string
 @description('Microsoft Entra ID tenant ID.')
 param tenantId string
 
+@description('Optional public IP (or CIDR) of the deployer to temporarily allow on storage networkAcls so the seed step can upload sample evidence over OAuth. Leave empty to keep the storage account fully private (no seeding).')
+param deployerIp string = ''
+
+@description('Optional principal ID (objectId) of the deployer (User or Service Principal). When set, the deployer is granted Storage Blob Data Contributor on the storage account so the seed step can upload sample evidence using OAuth (no shared keys).')
+param deployerPrincipalId string = ''
+
+@description('Principal type of the deployer principal.')
+@allowed(['User', 'ServicePrincipal', 'Group'])
+param deployerPrincipalType string = 'User'
+
 // ---------------------------------------------------------------------------
 // Variables
 // ---------------------------------------------------------------------------
@@ -43,6 +53,8 @@ var spaAppName = 'app-evidence-spa-${resourceSuffix}'
 var apiAppName = 'app-evidence-api-${resourceSuffix}'
 var logAnalyticsName = 'log-evidence-${resourceSuffix}'
 var appInsightsName = 'appi-evidence-${resourceSuffix}'
+var vnetName = 'vnet-evidence-${resourceSuffix}'
+var storagePrivateEndpointName = 'pe-${storageAccountName}-dfs'
 var tags = {
   project: 'msal-java-workshop'
   environment: environmentName
@@ -51,6 +63,15 @@ var tags = {
 // ---------------------------------------------------------------------------
 // Modules
 // ---------------------------------------------------------------------------
+
+module vnet 'modules/vnet.bicep' = {
+  name: 'vnet'
+  params: {
+    name: vnetName
+    location: location
+    tags: tags
+  }
+}
 
 module appServicePlan 'modules/app-service-plan.bicep' = {
   name: 'appServicePlan'
@@ -78,6 +99,19 @@ module storageAccount 'modules/storage-account.bicep' = {
     name: storageAccountName
     location: location
     tags: tags
+    deployerIp: deployerIp
+  }
+}
+
+module storagePrivateEndpoint 'modules/private-endpoint-storage.bicep' = {
+  name: 'storagePrivateEndpoint'
+  params: {
+    name: storagePrivateEndpointName
+    location: location
+    storageAccountId: storageAccount.outputs.id
+    subnetId: vnet.outputs.peSubnetId
+    vnetId: vnet.outputs.id
+    tags: tags
   }
 }
 
@@ -91,6 +125,7 @@ module spaApp 'modules/app-service-spa.bicep' = {
     tenantId: tenantId
     apiBaseUrl: 'https://${apiAppName}.azurewebsites.net'
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    virtualNetworkSubnetId: vnet.outputs.appSubnetId
     tags: tags
   }
 }
@@ -106,8 +141,12 @@ module apiApp 'modules/app-service-api.bicep' = {
     storageAccountName: storageAccountName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     allowedOrigin: 'https://${spaAppName}.azurewebsites.net'
+    virtualNetworkSubnetId: vnet.outputs.appSubnetId
     tags: tags
   }
+  dependsOn: [
+    storagePrivateEndpoint
+  ]
 }
 
 module roleAssignments 'modules/role-assignments.bicep' = {
@@ -115,6 +154,8 @@ module roleAssignments 'modules/role-assignments.bicep' = {
   params: {
     storageAccountName: storageAccountName
     apiPrincipalId: apiApp.outputs.principalId
+    deployerPrincipalId: deployerPrincipalId
+    deployerPrincipalType: deployerPrincipalType
   }
   dependsOn: [
     storageAccount

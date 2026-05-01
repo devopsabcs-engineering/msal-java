@@ -1,43 +1,58 @@
-<div class="home-container">
-  <h1>Justice Evidence Portal</h1>
-  <p>
-    A workshop sample application demonstrating MSAL-based authentication with
-    an Angular SPA and a Spring Boot API.
+<section>
+  <h1 class="ontario-h1">Justice Evidence Portal</h1>
+  <p class="ontario-lead-statement">
+    A Government of Ontario workshop sample demonstrating Microsoft Entra ID
+    authentication with an Angular SPA and a Spring Boot resource API.
   </p>
 
-  <div *ngIf="!isLoggedIn" class="sign-in-prompt">
-    <p>Sign in to access evidence case management.</p>
-    <button class="btn btn-primary" (click)="login()">
-      🔐 Sign In with Microsoft
+  <!-- Signed-out call to action -->
+  <div *ngIf="!isLoggedIn" class="page-card">
+    <h2 class="ontario-h2">Sign in to continue</h2>
+    <p>Use your Government of Ontario account to access evidence case management.</p>
+    <button type="button" class="ontario-button ontario-button--primary" (click)="login()">
+      Sign in with Microsoft
     </button>
   </div>
 
-  <div *ngIf="isLoggedIn && user" class="user-info">
-    <h3>Welcome back, {{ user.name }}</h3>
-    <p><strong>Email:</strong> {{ user.email }}</p>
-    <p *ngIf="user.roles.length > 0">
-      <strong>Roles:</strong> {{ user.roles.join(', ') }}
+  <!-- Signed-in user information -->
+  <div *ngIf="isLoggedIn" class="page-card">
+    <h2 class="ontario-h2">Welcome back<span *ngIf="user?.name">, {{ user?.name }}</span></h2>
+    <dl class="user-claims-grid" *ngIf="user; else loadingClaims">
+      <dt>Name</dt>
+      <dd>{{ user.name || '—' }}</dd>
+      <dt>Email</dt>
+      <dd>{{ user.email || '—' }}</dd>
+      <dt>Roles</dt>
+      <dd>
+        <ng-container *ngIf="user.roles && user.roles.length > 0; else noRoles">
+          <span *ngFor="let role of user.roles" class="status-pill" style="margin-right: 0.5rem;">{{ role }}</span>
+        </ng-container>
+        <ng-template #noRoles>—</ng-template>
+      </dd>
+      <dt>Scopes</dt>
+      <dd>{{ (user.scopes || []).join(', ') || '—' }}</dd>
+    </dl>
+    <ng-template #loadingClaims>
+      <p class="app-loading">Loading your profile&hellip;</p>
+    </ng-template>
+    <p style="margin-top: 1.5rem;">
+      <a routerLink="/cases" class="ontario-button ontario-button--secondary">View cases</a>
     </p>
-    <a routerLink="/cases" class="btn btn-primary" style="margin-top: 16px; display: inline-block; text-decoration: none; color: #fff;">
-      View Cases →
-    </a>
   </div>
 
-  <div class="features">
-    <div class="feature-card">
-      <div class="feature-icon">🔒</div>
-      <h3>Entra ID Auth</h3>
-      <p>Auth Code + PKCE flow with MSAL Angular v5</p>
+  <!-- Capability tiles -->
+  <div class="feature-tiles">
+    <div class="feature-tile">
+      <h3>Microsoft Entra ID</h3>
+      <p>Authorization Code + PKCE flow with MSAL Angular v5.</p>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">☕</div>
+    <div class="feature-tile">
       <h3>Spring Boot API</h3>
-      <p>JWT validation, scope and role enforcement</p>
+      <p>JWT validation with scope and role enforcement.</p>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">☁️</div>
+    <div class="feature-tile">
       <h3>Azure Storage</h3>
-      <p>Managed Identity access to Blob Storage</p>
+      <p>Managed Identity over a private endpoint to ADLS Gen2.</p>
     </div>
   </div>
-</div>
+</section>

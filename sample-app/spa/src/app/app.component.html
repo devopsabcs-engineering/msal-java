@@ -1,16 +1,72 @@
-<nav class="navbar">
-  <a class="navbar-brand" routerLink="/">Evidence Portal</a>
-  <div class="nav-links">
-    <a routerLink="/cases" *ngIf="isLoggedIn">Cases</a>
-    <button *ngIf="!isLoggedIn" class="btn btn-primary" (click)="login()">
-      Sign In
-    </button>
-    <button *ngIf="isLoggedIn" class="btn btn-secondary" (click)="logout()">
-      Sign Out
-    </button>
+<!-- Ontario application header -->
+<header class="ontario-application-header-container" id="ontario-header">
+  <div class="ontario-application-header">
+    <div class="ontario-row">
+      <div class="ontario-columns ontario-small-6 ontario-medium-8 ontario-application-header__logo">
+        <a href="https://www.ontario.ca/page/government-ontario" aria-label="Ontario.ca homepage">
+          <img src="vendor/ontario-design-system/logos/ontario-logo--desktop.svg" alt="Government of Ontario" />
+        </a>
+      </div>
+      <div class="ontario-columns ontario-small-6 ontario-medium-4 ontario-text-right">
+        <ng-container *ngIf="isLoggedIn; else signedOutTpl">
+          <span class="ontario-application-header__signed-in" aria-live="polite">
+            <span class="ontario-application-header__avatar" aria-hidden="true">{{ userInitials }}</span>
+            <span class="ontario-application-header__user-name">{{ username }}</span>
+          </span>
+          <button type="button" class="ontario-button ontario-button--tertiary ontario-application-header__sign-out" (click)="logout()">
+            Sign out
+          </button>
+        </ng-container>
+        <ng-template #signedOutTpl>
+          <button type="button" class="ontario-button ontario-button--primary" (click)="login()">
+            Sign in
+          </button>
+        </ng-template>
+      </div>
+    </div>
   </div>
-</nav>
+</header>
 
-<main class="content">
-  <router-outlet></router-outlet>
+<!-- Application label band -->
+<div class="ontario-application-subheader-menu__container">
+  <section class="ontario-application-subheader">
+    <div class="ontario-row">
+      <div class="ontario-columns ontario-small-12 ontario-application-subheader__container">
+        <p class="ontario-application-subheader__heading">
+          <a routerLink="/">Justice Evidence Portal</a>
+        </p>
+        <div class="ontario-application-subheader__menu-container" *ngIf="isLoggedIn">
+          <ul class="ontario-application-subheader__menu">
+            <li><a routerLink="/cases" routerLinkActive="ontario-application-subheader__item--active">Cases</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<main id="main-content" class="ontario-main-content">
+  <div class="ontario-row">
+    <div class="ontario-columns ontario-small-12">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
 </main>
+
+<!-- Ontario footer (default) -->
+<footer class="ontario-footer ontario-footer--default">
+  <div class="ontario-row">
+    <div class="ontario-columns ontario-small-12 ontario-medium-12 ontario-large-12">
+      <div class="ontario-footer__links-container">
+        <ul>
+          <li><a class="ontario-footer__links" href="https://www.ontario.ca/page/accessibility">Accessibility</a></li>
+          <li><a class="ontario-footer__links" href="https://www.ontario.ca/page/privacy-statement">Privacy</a></li>
+          <li><a class="ontario-footer__links" href="https://www.ontario.ca/page/contact-us">Contact us</a></li>
+        </ul>
+      </div>
+      <div class="ontario-footer__copyright">
+        &copy; King's Printer for Ontario, {{ currentYear }}
+      </div>
+    </div>
+  </div>
+</footer>

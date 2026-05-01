@@ -9,21 +9,25 @@ ms.date: 2026-04-21
 The Justice Evidence Portal uses a three-tier architecture with Microsoft Entra ID providing identity and access control across all layers.
 
 ```text
-┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  Angular SPA │────►│  Spring Boot API  │────►│  Azure Blob      │
-│  (MSAL Auth) │     │  (JWT Validation) │     │  Storage         │
-│              │     │                   │     │  (Evidence Files) │
-└──────┬───────┘     └────────┬──────────┘     └──────────────────┘
-       │                      │                         ▲
-       │   Auth Code + PKCE   │  Managed Identity       │
-       ▼                      ▼                         │
-┌─────────────────────────────────────────────────────────────────┐
-│                    Microsoft Entra ID                            │
-│         App Registrations  ·  Roles  ·  Scopes                  │
-└─────────────────────────────────────────────────────────────────┘
+                                                          ┌──────────────────────────────┐
+                                                          │ Virtual Network 10.20.0.0/16 │
+                                                          │                              │
+┌──────────────┐     ┌──────────────────┐                 │  ┌──────────────────────┐    │
+│  Angular SPA │────►│  Spring Boot API │──── MI OAuth ──►│  │ Private Endpoint     │    │
+│  (MSAL.js,   │     │  (JWT v2,        │     (Storage    │  │ snet-pe / dfs        │    │
+│   Auth Code  │     │   Resource       │     Blob Data   │  │ privatelink.dfs.<…>  │    │
+│   + PKCE)    │     │   Server)        │     Contributor)│  └──────────┬───────────┘    │
+└──────┬───────┘     └────────┬─────────┘                 └─────────────┼────────────────┘
+       │                      │                                         │
+       │   Auth Code + PKCE   │  Bearer JWT v2                          ▼
+       ▼                      ▼                              ┌────────────────────────┐
+┌─────────────────────────────────────────────────┐          │ ADLS Gen2 (HNS)        │
+│                Microsoft Entra ID               │          │ shared keys: disabled  │
+│   App Registrations  ·  Roles  ·  Scopes        │          │ public access: denied  │
+└─────────────────────────────────────────────────┘          └────────────────────────┘
 ```
 
-The Angular SPA authenticates users via MSAL with Auth Code + PKCE flow. The Spring Boot API validates JWT tokens and enforces role-based access. Evidence files in Azure Blob Storage are accessed through the API using Managed Identity, eliminating storage account keys entirely.
+The Angular SPA authenticates users via MSAL with Auth Code + PKCE flow. The Spring Boot API validates JWT v2 tokens and enforces role-based access. Evidence files in Azure Data Lake Storage Gen2 are accessed through the API using Managed Identity over a Private Endpoint, eliminating storage account keys entirely — shared keys are disabled at the storage account.
 
 ## Scenario
 
@@ -34,7 +38,7 @@ The workshop centers on a Justice Evidence Portal: a secure application for mana
 ### Prerequisites
 
 | Tool | Version | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | Node.js | 20 LTS or later | Angular SPA build and development |
 | Java JDK | 17 or later | Spring Boot API compilation and runtime |
 | Maven | 3.9 or later (auto-installed by start script) | Java dependency management and build |
@@ -138,15 +142,17 @@ az account set --subscription <subscriptionIdOrName>
 What `deploy.ps1` does end-to-end:
 
 1. Verifies `az`, `node`, `mvn` (auto-installs Maven into `%LOCALAPPDATA%\Maven` if missing).
-2. Calls `setup-entra-apps.ps1` to create/reuse both app registrations, expose the scope and roles, grant admin consent, and assign your user to `CaseReader` + `CaseAdmin`.
+2. Calls `setup-entra-apps.ps1` to create/reuse both app registrations, expose the scope and roles, force the API token version to v2, grant admin consent, and assign your user to `CaseReader` + `CaseAdmin`.
 3. Creates the resource group `rg-evidence-workshop` in `canadacentral` and a deterministic globally-unique storage account name.
-4. Deploys the Bicep stack (App Service Plan, two App Services with system-assigned Managed Identity, Storage Account, Application Insights, role assignments).
-5. Patches `environment.prod.ts` with the deployed SPA/API URLs and App Insights connection string.
-6. Re-runs `setup-entra-apps.ps1` to add the production SPA URL as a SPA-platform redirect URI on the SPA app registration.
-7. Builds the Angular SPA in production mode and the Spring Boot API as an executable JAR.
-8. Deploys the SPA zip and the API JAR with `az webapp deploy`.
-9. Grants your user `Storage Blob Data Contributor` on the storage account, creates the `evidence` container, and uploads the five sample PDFs (with retries to absorb RBAC propagation).
-10. Smoke-tests the result: SPA URL must return `200`, API `/api/cases` must return `401` (proving JWT validation is enforced).
+4. Detects your public IP and Entra principal objectId so the seed step can run over OAuth without ever using a shared key.
+5. Deploys the Bicep stack: VNet (`snet-app` delegated to `Microsoft.Web/serverFarms`, `snet-pe` for endpoints), App Service Plan (S1 Linux — minimum SKU for VNet integration), two App Services with system-assigned Managed Identity and Regional VNet integration, hardened ADLS Gen2 storage (`isHnsEnabled=true`, `allowSharedKeyAccess=false`, `publicNetworkAccess=Disabled`, `networkAcls.defaultAction=Deny`), Private Endpoint on the storage `dfs` sub-resource, Private DNS Zone `privatelink.dfs.<storage suffix>`, Application Insights, and `Storage Blob Data Contributor` role assignment for the API Managed Identity.
+6. Patches `environment.prod.ts` with the deployed SPA/API URLs and App Insights connection string.
+7. Re-runs `setup-entra-apps.ps1` to add the production SPA URL as a SPA-platform redirect URI on the SPA app registration.
+8. Builds the Angular SPA in production mode (with the Ontario Design System assets fetched into `public/vendor/`) and the Spring Boot API as an executable JAR.
+9. Deploys the SPA zip and the API JAR with `az webapp deploy`.
+10. Uploads the five sample PDFs over OAuth (`--auth-mode login`, no shared keys) using the temporary deployer-IP allow-list and `Storage Blob Data Contributor` RBAC.
+11. Re-deploys storage with `deployerIp=''` so `publicNetworkAccess` flips back to `Disabled`. App Services keep working via the Private Endpoint.
+12. Smoke-tests the result: SPA URL must return `200`, API `/api/cases` must return `401` (proving JWT validation is enforced).
 
 When it finishes you'll see something like:
 
@@ -165,7 +171,7 @@ Open the SPA URL, sign in with the same account you ran the script as, and you s
 Common flags:
 
 | Flag | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `-ResourceGroup` | `rg-evidence-workshop` | Target resource group (created if missing). |
 | `-Location` | `canadacentral` | Azure region. |
 | `-Environment` | `workshop` | Suffix used for App Service names (`app-evidence-spa-<env>`, `app-evidence-api-<env>`). |
@@ -185,7 +191,7 @@ az group delete --name rg-evidence-workshop --yes --no-wait
 Follow these exercises in order for the full 3-hour workshop experience. Already saw the Fast-Track land everything in Azure? You can still use these guides as a tear-down of what `deploy.ps1` automated.
 
 | Exercise | Duration | Description |
-|---|---|---|
+| --- | --- | --- |
 | [Exercise 1: Configure App Registrations](workshop/guides/exercise-1-app-registrations.md) | 30 min | Create Entra ID app registrations for the SPA and API, configure scopes, roles, and update the SPA environment. (Automated end-to-end by `setup-entra-apps.ps1`.) |
 | [Exercise 2: Run SPA + API Locally](workshop/guides/exercise-2-run-locally.md) | 30 min | Sign in through the SPA, browse cases, download evidence, and inspect JWT tokens. |
 | [Exercise 3: Add Role-Protected Endpoint](workshop/guides/exercise-3-add-endpoint.md) | 20 min | Experience the RBAC cycle: 403 Forbidden, assign CaseAdmin role, re-authenticate, 201 Created. |
@@ -231,12 +237,12 @@ msal-java/
 ## Technology Stack
 
 | Layer | Technology | Version | Purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Frontend | Angular | 19.2 | Single Page Application framework |
 | Frontend Auth | MSAL Angular | 5.2 | Entra ID authentication (Auth Code + PKCE) |
 | Backend | Spring Boot | 3.4.4 | REST API framework |
 | Backend Auth | Spring Security OAuth2 Resource Server | 6.2 | JWT validation with scope and role enforcement |
-| Storage | Azure Blob Storage | 12.33.3 SDK | Evidence file storage via Managed Identity |
+| Storage | Azure Data Lake Storage Gen2 | `azure-storage-file-datalake` 12.23.0 | Evidence file storage via Managed Identity over Private Endpoint |
 | Identity | Azure Identity | 1.18.2 SDK | DefaultAzureCredential for Managed Identity |
 | Monitoring | Application Insights | 3.7.8 Agent | Telemetry for SPA (JS SDK) and API (runtime-attach) |
 | Infrastructure | Bicep | Latest | Azure resource provisioning (App Service, Storage, monitoring) |
@@ -244,13 +250,13 @@ msal-java/
 ## Key Design Decisions
 
 - **Dev profile is open**: No authentication required to explore the API locally. JWT validation and `@PreAuthorize` enforcement activate in non-dev profiles.
-- **Dual-mode storage**: `LocalStorageService` serves embedded PDFs in dev; `AzureBlobStorageService` uses Managed Identity in prod.
-- **No storage keys or SAS tokens**: All Azure Blob access uses Managed Identity with Storage Blob Data Reader role.
-- **Simplified workshop infrastructure**: B1 Basic App Service Plan (~$14/month) without Private Endpoints. Production hardening is documented separately.
+- **Dual-mode storage**: `LocalStorageService` serves embedded PDFs in dev; `AzureBlobStorageService` (the production bean) uses the ADLS Gen2 DataLake SDK + Managed Identity over the Private Endpoint in prod.
+- **No storage keys, no SAS tokens, no anonymous access**: Shared keys are disabled at the storage account; all data-plane access is Entra ID OAuth + RBAC (`Storage Blob Data Contributor` on the API Managed Identity). The seed step uploads sample PDFs the same way (`az storage blob upload-batch --auth-mode login`) under a temporary deployer-IP allow-list that is removed at the end of the deployment.
+- **Hardened-by-default network**: `publicNetworkAccess=Disabled`, `networkAcls.defaultAction=Deny`, App Services run with `WEBSITE_VNET_ROUTE_ALL=1` so storage traffic resolves through the `privatelink.dfs.<storage-suffix>` zone to the Private Endpoint NIC IP.
 
 ## Production Hardening
 
-The workshop deployment uses simplified infrastructure to keep costs low and focus on authentication concepts. For production deployments requiring network isolation with Private Endpoints, VNet integration, and Private DNS Zones, see the [Production Hardening Guide](docs/production-hardening.md).
+The workshop already ships with a hardened-by-default network and identity posture: ADLS Gen2 with shared keys disabled and `publicNetworkAccess=Disabled`, App Service Regional VNet integration, a Private Endpoint on the storage `dfs` sub-resource, and Managed Identity + RBAC end-to-end. For the optional next-step controls (Front Door + WAF, App Service Private Endpoints, customer-managed keys, multi-region failover), see the [Production Hardening Guide](docs/production-hardening.md).
 
 ## License
 

@@ -9,29 +9,31 @@ ms.topic: how-to
 ## Architecture Overview
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                    Resource Group                        │
-│                                                         │
-│  ┌──────────────────────────────────────────────┐       │
-│  │         App Service Plan (Linux B1)          │       │
-│  │  ┌─────────────────┐ ┌────────────────────┐  │       │
-│  │  │  SPA App Service │ │  API App Service   │  │       │
-│  │  │  (Node 20 LTS)  │ │  (Java 17 SE)      │  │       │
-│  │  │  Angular + pm2   │ │  Spring Boot 3.4   │  │       │
-│  │  │  Managed Identity│ │  Managed Identity  │  │       │
-│  │  └─────────────────┘ └────────┬───────────┘  │       │
-│  └──────────────────────────────────────────────┘       │
-│                                  │                       │
-│                    Storage Blob Data Reader              │
-│                                  │                       │
-│  ┌───────────────────┐  ┌───────▼───────────┐           │
-│  │  App Insights     │  │ Storage Account   │           │
-│  │  + Log Analytics  │  │ (evidence container)│          │
-│  └───────────────────┘  └───────────────────┘           │
-└─────────────────────────────────────────────────────────┘
+Resource Group
+│
+├── Virtual Network (vnet-evidence-<env>, 10.20.0.0/16)
+│   ├── snet-app  10.20.1.0/24  (delegated to Microsoft.Web/serverFarms)
+│   │      ├── SPA App Service (Node 20)   ─┐
+│   │      └── API App Service (Java 17)   ─┤  Regional VNet integration
+│   │                                       │  WEBSITE_VNET_ROUTE_ALL=1
+│   └── snet-pe   10.20.2.0/24  (PE network policies disabled)
+│          └── Private Endpoint (groupId=dfs) ──► ADLS Gen2
+│
+├── Private DNS Zone: privatelink.dfs.<storage-suffix>  (linked to VNet)
+│
+├── App Service Plan (S1 Linux)
+│
+├── Storage Account (ADLS Gen2)
+│      isHnsEnabled = true
+│      allowSharedKeyAccess = false      (OAuth + RBAC only)
+│      publicNetworkAccess = Disabled
+│      networkAcls.defaultAction = Deny
+│      → API Managed Identity has "Storage Blob Data Contributor"
+│
+└── Application Insights + Log Analytics
 ```
 
-The API App Service accesses Azure Blob Storage through its system-assigned Managed Identity with the Storage Blob Data Reader role. No storage keys or SAS tokens are used.
+The API App Service accesses ADLS Gen2 through its system-assigned Managed Identity with the `Storage Blob Data Contributor` role, over a Private Endpoint (groupId `dfs`). Shared keys are disabled at the storage account, so OAuth + RBAC is the only authentication path.
 
 ## Prerequisites
 
@@ -85,39 +87,42 @@ After deploying infrastructure, complete these steps:
 2. Update your API app registration with the correct Application ID URI if different from the default `api://<apiClientId>`.
 3. Deploy application code using `az webapp deploy`:
 
-```bash
-# Deploy the API JAR
-az webapp deploy \
-  --resource-group rg-evidence-workshop \
-  --name app-evidence-api-workshop \
-  --src-path sample-app/api/target/evidence-api-0.0.1-SNAPSHOT.jar \
-  --type jar
+   ```bash
+   # Deploy the API JAR
+   az webapp deploy \
+     --resource-group rg-evidence-workshop \
+     --name app-evidence-api-workshop \
+     --src-path sample-app/api/target/evidence-api-0.0.1-SNAPSHOT.jar \
+     --type jar
 
-# Deploy the SPA (zip of dist output)
-cd sample-app/spa
-ng build --configuration production
-cd dist/evidence-spa/browser
-zip -r ../../../spa.zip .
-az webapp deploy \
-  --resource-group rg-evidence-workshop \
-  --name app-evidence-spa-workshop \
-  --src-path ../../../spa.zip \
-  --type zip
-```
+   # Deploy the SPA (zip of dist output)
+   cd sample-app/spa
+   ng build --configuration production
+   cd dist/evidence-spa/browser
+   zip -r ../../../spa.zip .
+   az webapp deploy \
+     --resource-group rg-evidence-workshop \
+     --name app-evidence-spa-workshop \
+     --src-path ../../../spa.zip \
+     --type zip
+   ```
 
 4. Upload sample evidence files to the `evidence` blob container using Azure Portal or CLI.
 
 ## Cost Estimate
 
 | Resource | SKU | Estimated Monthly Cost |
-|---|---|---|
-| App Service Plan | B1 (Linux) | ~$13 |
-| Storage Account | Standard_LRS | ~$0.50 |
-| Application Insights | Pay-as-you-go | ~$0.50 |
-| **Total** | | **~$14/month** |
+| --- | --- | --- |
+| App Service Plan | S1 (Linux) | ~$70 |
+| Storage Account | Standard_LRS, HNS | ~$2 |
+| Virtual Network | n/a | Free |
+| Private Endpoint | 1 PE × ~$7.50 | ~$7.50 |
+| Private DNS Zone | 1 zone × ~$0.50 | ~$0.50 |
+| Application Insights | Pay-as-you-go | ~$2 |
+| **Total** | | **~$82/month** |
 
 > [!TIP]
-> Stop or delete the App Service Plan when not running the workshop to avoid ongoing charges.
+> Stop or delete the App Service Plan when not running the workshop to avoid ongoing charges. The storage account, Private Endpoint, and DNS zone continue to bill while they exist.
 
 ## Cleanup
 
@@ -130,10 +135,12 @@ az group delete --name rg-evidence-workshop --yes --no-wait
 ## Module Reference
 
 | Module | Purpose |
-|---|---|
-| `modules/app-service-plan.bicep` | Linux App Service Plan with configurable SKU |
-| `modules/app-service-spa.bicep` | Node 20 App Service for Angular SPA with pm2 |
-| `modules/app-service-api.bicep` | Java 17 App Service for Spring Boot API |
-| `modules/storage-account.bicep` | Storage Account with evidence blob container |
+| --- | --- |
+| `modules/vnet.bicep` | Virtual Network with `snet-app` (delegated to `Microsoft.Web/serverFarms`) and `snet-pe` (Private Endpoints, network policies disabled) |
+| `modules/app-service-plan.bicep` | Linux App Service Plan, S1 minimum (required for VNet integration) |
+| `modules/app-service-spa.bicep` | Node 20 App Service for Angular SPA with pm2, Regional VNet integration, `WEBSITE_VNET_ROUTE_ALL=1` |
+| `modules/app-service-api.bicep` | Java 17 App Service for Spring Boot API, Regional VNet integration, `WEBSITE_VNET_ROUTE_ALL=1` |
+| `modules/storage-account.bicep` | Hardened ADLS Gen2 (`isHnsEnabled=true`, `allowSharedKeyAccess=false`, `publicNetworkAccess=Disabled`, `networkAcls.defaultAction=Deny`) with optional deployer-IP allow-list for the seed step |
+| `modules/private-endpoint-storage.bicep` | Private Endpoint on the storage `dfs` sub-resource + Private DNS Zone `privatelink.dfs.<storage-suffix>` + VNet link |
 | `modules/monitoring.bicep` | Log Analytics workspace and Application Insights |
-| `modules/role-assignments.bicep` | Storage Blob Data Reader role for API Managed Identity |
+| `modules/role-assignments.bicep` | `Storage Blob Data Contributor` for the API Managed Identity (and optionally for the deployer principal during seeding) |

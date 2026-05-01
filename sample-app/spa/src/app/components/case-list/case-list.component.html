@@ -1,23 +1,29 @@
-<div class="case-list-container">
-  <h2>Evidence Cases</h2>
+<section>
+  <h1 class="ontario-h1">Evidence cases</h1>
+  <p class="ontario-lead-statement">Cases assigned across the Justice portfolio.</p>
 
-  <p *ngIf="loading">Loading cases&hellip;</p>
-  <p *ngIf="error" class="error">{{ error }}</p>
+  <p *ngIf="loading" class="app-loading">Loading cases&hellip;</p>
+  <div *ngIf="error" class="app-error-callout" role="alert">{{ error }}</div>
 
   <table *ngIf="!loading && !error && cases.length > 0" class="case-table">
     <thead>
       <tr>
-        <th>Case ID</th>
-        <th>Title</th>
-        <th>Status</th>
-        <th>Assigned To</th>
+        <th scope="col">Case ID</th>
+        <th scope="col">Title</th>
+        <th scope="col">Status</th>
+        <th scope="col">Assigned to</th>
       </tr>
     </thead>
     <tbody>
       <tr *ngFor="let c of cases">
         <td><a [routerLink]="['/cases', c.id]">{{ c.id }}</a></td>
         <td>{{ c.title }}</td>
-        <td>{{ c.status }}</td>
+        <td>
+          <span class="status-pill"
+                [class.status-open]="c.status === 'Open'"
+                [class.status-pending]="c.status === 'Under Review'"
+                [class.status-closed]="c.status === 'Closed'">{{ c.status }}</span>
+        </td>
         <td>{{ c.assignedTo }}</td>
       </tr>
     </tbody>
@@ -26,4 +32,4 @@
   <p *ngIf="!loading && !error && cases.length === 0">
     No cases found.
   </p>
-</div>
+</section>

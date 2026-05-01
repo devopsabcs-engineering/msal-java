@@ -26,8 +26,13 @@ param appInsightsConnectionString string
 @description('Allowed origin for CORS (typically the SPA App Service URL).')
 param allowedOrigin string
 
+@description('Resource ID of the subnet for App Service Regional VNet integration. Empty string disables integration.')
+param virtualNetworkSubnetId string = ''
+
 @description('Resource tags.')
 param tags object = {}
+
+var enableVnetIntegration = !empty(virtualNetworkSubnetId)
 
 resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
   name: name
@@ -39,11 +44,14 @@ resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
   properties: {
     serverFarmId: appServicePlanId
     httpsOnly: true
+    virtualNetworkSubnetId: enableVnetIntegration ? virtualNetworkSubnetId : null
+    publicNetworkAccess: 'Enabled'
     siteConfig: {
       linuxFxVersion: 'JAVA|17-java17'
       alwaysOn: true
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
+      vnetRouteAllEnabled: enableVnetIntegration
       appSettings: [
         {
           name: 'WEBSITES_PORT'
@@ -71,7 +79,7 @@ resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         {
           name: 'JWT_AUDIENCE'
-          value: 'api://${apiClientId}'
+          value: 'api://${apiClientId},${apiClientId}'
         }
         {
           name: 'AZURE_TENANT_ID'
@@ -92,6 +100,17 @@ resource apiApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsightsConnectionString
+        }
+        {
+          // Force all outbound traffic through the VNet (so the storage
+          // call resolves via the privatelink.dfs.core.windows.net DNS zone).
+          name: 'WEBSITE_VNET_ROUTE_ALL'
+          value: enableVnetIntegration ? '1' : '0'
+        }
+        {
+          // Honour Azure Private DNS for the integrated VNet.
+          name: 'WEBSITE_DNS_SERVER'
+          value: '168.63.129.16'
         }
       ]
     }

@@ -1,29 +1,38 @@
-<div class="case-detail-container">
-  <p *ngIf="loading">Loading case details&hellip;</p>
-  <p *ngIf="error" class="error">{{ error }}</p>
+<section>
+  <p *ngIf="loading" class="app-loading">Loading case details&hellip;</p>
+  <div *ngIf="error" class="app-error-callout" role="alert">{{ error }}</div>
 
-  <div *ngIf="caseData">
-    <h2>{{ caseData.title }}</h2>
-    <dl>
+  <article *ngIf="caseData">
+    <p>
+      <a routerLink="/cases">&larr; Back to cases</a>
+    </p>
+    <h1 class="ontario-h1">{{ caseData.title }}</h1>
+
+    <dl class="user-claims-grid">
       <dt>Case ID</dt>
       <dd>{{ caseData.id }}</dd>
       <dt>Status</dt>
-      <dd>{{ caseData.status }}</dd>
-      <dt>Assigned To</dt>
+      <dd>
+        <span class="status-pill"
+              [class.status-open]="caseData.status === 'Open'"
+              [class.status-pending]="caseData.status === 'Under Review'"
+              [class.status-closed]="caseData.status === 'Closed'">{{ caseData.status }}</span>
+      </dd>
+      <dt>Assigned to</dt>
       <dd>{{ caseData.assignedTo }}</dd>
       <dt>Description</dt>
       <dd>{{ caseData.description }}</dd>
     </dl>
 
-    <h3>Evidence Files</h3>
+    <h2 class="ontario-h2">Evidence files</h2>
     <table *ngIf="caseData.evidenceFiles.length > 0" class="evidence-table">
       <thead>
         <tr>
-          <th>Filename</th>
-          <th>Classification</th>
-          <th>Uploaded</th>
-          <th>Size (bytes)</th>
-          <th>Action</th>
+          <th scope="col">Filename</th>
+          <th scope="col">Classification</th>
+          <th scope="col">Uploaded</th>
+          <th scope="col">Size (bytes)</th>
+          <th scope="col">Action</th>
         </tr>
       </thead>
       <tbody>
@@ -33,7 +42,7 @@
           <td>{{ file.uploadedAt }}</td>
           <td>{{ file.sizeBytes }}</td>
           <td>
-            <button class="btn btn-sm" (click)="download(file.id)">
+            <button type="button" class="ontario-button ontario-button--secondary" (click)="download(file.id)">
               Download
             </button>
           </td>
@@ -43,7 +52,5 @@
     <p *ngIf="caseData.evidenceFiles.length === 0">
       No evidence files attached.
     </p>
-
-    <a routerLink="/cases">&larr; Back to Cases</a>
-  </div>
-</div>
+  </article>
+</section>

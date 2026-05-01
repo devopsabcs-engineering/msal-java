@@ -8,9 +8,9 @@ param name string
 @description('Azure region for the App Service Plan.')
 param location string
 
-@description('SKU name for the App Service Plan.')
-@allowed(['B1', 'B2', 'B3', 'S1', 'P1v3'])
-param skuName string = 'B1'
+@description('SKU name for the App Service Plan. S1 or higher is required for VNet integration.')
+@allowed(['B1', 'B2', 'B3', 'S1', 'P1v3', 'P2v3', 'P3v3'])
+param skuName string = 'S1'
 
 @description('Resource tags.')
 param tags object = {}

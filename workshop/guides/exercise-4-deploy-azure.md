@@ -8,13 +8,33 @@ estimated_reading_time: 5
 
 ## Objective
 
-Deploy the complete evidence management solution to Azure using Bicep infrastructure-as-code templates. Verify that the API accesses Azure Blob Storage through Managed Identity (no storage account keys). By the end of this exercise, both applications run in Azure App Service and evidence files download from Blob Storage.
+Deploy the complete evidence management solution to Azure using Bicep infrastructure-as-code templates. The default infra deploys a hardened-by-default architecture: a Virtual Network with regional VNet integration on both App Services, a Private Endpoint on the storage `dfs` sub-resource, ADLS Gen2 with shared keys disabled, and a `Storage Blob Data Contributor` RBAC assignment for the API Managed Identity. By the end of this exercise, both applications run in Azure App Service and evidence files download from ADLS Gen2 via the API Managed Identity over a Private Endpoint.
 
 **Duration:** 20 minutes
 
 **Prerequisite:** Exercise 3 completed and Azure CLI authenticated (`az login`).
 
-**Cost note:** The deployed infrastructure uses a B1 App Service Plan and Standard LRS Storage Account, costing approximately $14/month. Delete the resource group after the workshop to avoid ongoing charges.
+**Cost note:** The deployed infrastructure uses an S1 App Service Plan (minimum SKU for VNet integration), a Private Endpoint, a Private DNS Zone, and a Standard LRS Storage Account, costing approximately $80/month. Delete the resource group after the workshop to avoid ongoing charges.
+
+## Default architecture
+
+```text
+Resource Group
+│
+├── Virtual Network (vnet-evidence-<env>, 10.20.0.0/16)
+│   ├── snet-app  10.20.1.0/24  (delegated to Microsoft.Web/serverFarms)
+│   │      ├── SPA App Service (Node 20)   ─┐
+│   │      └── API App Service (Java 17)   ─┤  Regional VNet integration
+│   │                                       │  WEBSITE_VNET_ROUTE_ALL=1
+│   └── snet-pe   10.20.2.0/24  (PE network policies disabled)
+│          └── Private Endpoint (groupId=dfs) ──► ADLS Gen2
+│
+├── Private DNS Zone: privatelink.dfs.<storage-suffix>
+│
+├── ADLS Gen2 (HNS)  —  shared keys: disabled,  publicNetworkAccess: Disabled
+│
+└── Application Insights + Log Analytics
+```
 
 > ## Fast-Track: One-Command Deploy
 >
@@ -45,23 +65,29 @@ az group create \
 Open `infra/main.bicepparam` and update the parameter values with the app registration IDs from Exercise 1:
 
 | Parameter | Value |
-|-----------|-------|
+| ----------- | ------- |
 | `spaClientId` | SPA Application (client) ID |
 | `apiClientId` | API Application (client) ID |
 | `tenantId` | Directory (tenant) ID |
 
 ### Step 3: Deploy the Infrastructure
 
-Run the Bicep deployment. This creates the App Service Plan, two App Services, Storage Account, Application Insights, and role assignments for Managed Identity.
+Run the Bicep deployment. This creates the Virtual Network, App Service Plan (S1 minimum), two App Services with Regional VNet integration and Managed Identity, ADLS Gen2 storage (HNS, shared keys disabled, public access disabled), the Private Endpoint and Private DNS zone for storage, Application Insights, and the `Storage Blob Data Contributor` role assignment for the API Managed Identity.
+
+For the seed step (Step 5) to work over OAuth without ever using a shared key, pass your public IP and Entra principal objectId. Bicep will temporarily allow-list your IP and grant your principal `Storage Blob Data Contributor`. After the data is uploaded, you'll re-deploy with `deployerIp=''` to flip storage back to `publicNetworkAccess=Disabled`.
 
 ```bash
+MY_IP=$(curl -s https://api.ipify.org)
+MY_OID=$(az ad signed-in-user show --query id -o tsv)
+
 az deployment group create \
   --resource-group rg-evidence-workshop \
   --template-file infra/main.bicep \
-  --parameters infra/main.bicepparam
+  --parameters infra/main.bicepparam \
+  --parameters deployerIp=$MY_IP deployerPrincipalId=$MY_OID deployerPrincipalType=User
 ```
 
-The deployment takes 5-10 minutes. While it runs, proceed to Step 4.
+The deployment takes 10-15 minutes (the Private Endpoint and Private DNS Zone add a few minutes over a vanilla App Service deploy). While it runs, proceed to Step 4.
 
 ### Step 4: Build the Applications
 
@@ -83,20 +109,13 @@ mvn clean package -DskipTests
 
 ### Step 5: Upload Sample Evidence Files to Storage
 
-After the deployment completes, upload the sample evidence PDFs to the storage container. The `--auth-mode login` flag uses your Azure AD credentials (no storage keys), so you first need to grant yourself the **Storage Blob Data Contributor** role on the new account:
+After the deployment completes, upload the sample evidence PDFs to the storage container. The `--auth-mode login` flag uses your Entra ID credentials — shared keys are disabled at the storage account, so OAuth is the only way in. Bicep already granted your principal `Storage Blob Data Contributor` and added your IP to the allow-list in Step 3, so this should just work after a short RBAC propagation delay:
 
 ```bash
 STORAGE_ACCOUNT=$(az deployment group show \
   --resource-group rg-evidence-workshop \
   --name main \
   --query properties.outputs.storageAccountNameOutput.value -o tsv)
-
-# Grant the signed-in user the data plane role (Owner alone is not enough for blob ops)
-USER_OID=$(az ad signed-in-user show --query id -o tsv)
-SA_ID=$(az storage account show --resource-group rg-evidence-workshop --name $STORAGE_ACCOUNT --query id -o tsv)
-az role assignment create \
-  --assignee-object-id $USER_OID --assignee-principal-type User \
-  --role 'Storage Blob Data Contributor' --scope $SA_ID
 
 # Wait ~30s for the role assignment to propagate, then upload
 sleep 30
@@ -106,6 +125,18 @@ az storage blob upload-batch \
   --destination evidence \
   --source sample-app/api/src/main/resources/data/sample-evidence \
   --auth-mode login --overwrite
+```
+
+### Step 5b: Re-lock storage (revoke deployer IP)
+
+Now that the data is in place, re-deploy Bicep with `deployerIp=''` so the storage account flips back to `publicNetworkAccess=Disabled`. From here on, only the App Services (via the Private Endpoint) can reach storage data:
+
+```bash
+az deployment group create \
+  --resource-group rg-evidence-workshop \
+  --template-file infra/main.bicep \
+  --parameters infra/main.bicepparam \
+  --parameters deployerIp='' deployerPrincipalId=''
 ```
 
 ### Step 6: Deploy the SPA
@@ -179,7 +210,7 @@ az webapp restart --resource-group rg-evidence-workshop --name $API_APP
 2. Sign in with your Entra ID account.
 3. Browse to `/cases` and verify the case list loads.
 4. Open a case and download an evidence file.
-5. Confirm the PDF opens correctly. The file now comes from Azure Blob Storage via the API's Managed Identity, with no storage account keys involved.
+5. Confirm the PDF opens correctly. The file now comes from ADLS Gen2 via the API's Managed Identity over the Private Endpoint, with no storage account keys involved (shared keys are disabled at the storage account).
 
 ## Verification
 
@@ -187,8 +218,10 @@ Confirm each of these items works in the deployed environment:
 
 - [ ] Both App Services are running (check the Azure portal or `az webapp show`)
 - [ ] Sign-in redirects to Entra ID and returns to the deployed SPA URL
-- [ ] Case list loads with data
-- [ ] Evidence file downloads as a valid PDF from Azure Blob Storage
+- [ ] The header shows your signed-in name and the API `/api/me` endpoint returns your roles + scopes
+- [ ] Case list loads with data (proves the API can read ADLS Gen2 over the Private Endpoint via Managed Identity)
+- [ ] Evidence file downloads as a valid PDF
+- [ ] Storage account shows `publicNetworkAccess: Disabled` and `allowSharedKeyAccess: false` in `az storage account show`
 - [ ] Application Insights shows telemetry from both applications
 
 ## Cleanup
@@ -204,7 +237,7 @@ Also remove the production redirect URI from the SPA app registration if you no 
 ## Troubleshooting
 
 | Problem | Cause | Fix |
-|---------|-------|-----|
+| --------- | ------- | ----- |
 | Deployment fails with quota error | Subscription has reached resource limits for the region | Try a different region or request a quota increase |
 | SPA returns 404 after deployment | SPA build output not in the correct directory | Verify `ng build` output is in `dist/evidence-portal/browser` and the zip was created from that directory |
 | API returns 500 on startup | Missing environment variables | Run `configure-app-settings.sh` and restart the API App Service: `az webapp restart --name $API_APP --resource-group rg-evidence-workshop` |
