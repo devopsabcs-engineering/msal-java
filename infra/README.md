@@ -140,7 +140,7 @@ az group delete --name rg-evidence-workshop --yes --no-wait
 | `modules/app-service-plan.bicep` | Linux App Service Plan, S1 minimum (required for VNet integration) |
 | `modules/app-service-spa.bicep` | Node 20 App Service for Angular SPA with pm2, Regional VNet integration, `WEBSITE_VNET_ROUTE_ALL=1` |
 | `modules/app-service-api.bicep` | Java 17 App Service for Spring Boot API, Regional VNet integration, `WEBSITE_VNET_ROUTE_ALL=1` |
-| `modules/storage-account.bicep` | Hardened ADLS Gen2 (`isHnsEnabled=true`, `allowSharedKeyAccess=false`, `publicNetworkAccess=Disabled`, `networkAcls.defaultAction=Deny`) with optional deployer-IP allow-list for the seed step |
+| `modules/storage-account.bicep` | Hardened ADLS Gen2 (`isHnsEnabled=true`, `allowSharedKeyAccess=false`, `publicNetworkAccess=Enabled` with `networkAcls.defaultAction=Deny` and a `VirtualNetworkRule` for `snet-app`) with optional deployer-IP allow-list for the seed step. The `Enabled` flag is intentional — `virtualNetworkRules` are only honoured when public access is `Enabled`; the `Deny` default action still rejects every public caller that does not match a rule. |
 | `modules/private-endpoint-storage.bicep` | Private Endpoint on the storage `dfs` sub-resource + Private DNS Zone `privatelink.dfs.<storage-suffix>` + VNet link |
 | `modules/monitoring.bicep` | Log Analytics workspace and Application Insights |
 | `modules/role-assignments.bicep` | `Storage Blob Data Contributor` for the API Managed Identity (and optionally for the deployer principal during seeding) |
