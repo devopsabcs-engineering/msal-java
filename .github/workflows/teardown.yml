@@ -1,0 +1,233 @@
+# ---------------------------------------------------------------------------
+# Tear down the Evidence Portal workshop environment.
+#
+# This workflow is the destructive counterpart to deploy.yml. It is
+# manual-only (workflow_dispatch) and requires the operator to type
+# "DESTROY" into the confirmation input before anything is deleted.
+#
+# What it does
+# ------------
+#   1. Validates the typed confirmation.
+#   2. Logs into Azure via OIDC (same federated identity used by deploy.yml).
+#   3. Deletes the Azure resource group (App Service Plan, App Services,
+#      Storage account, Private Endpoint, Private DNS Zone, VNet,
+#      Application Insights, Log Analytics workspace, role assignments).
+#   4. (Optional) Deletes the API + SPA Entra ID app registrations using
+#      the IDs stored in .entra-apps.json. Off by default because the
+#      registrations live in a tenant that may also host other workloads.
+#
+# What it does NOT do
+# -------------------
+#   * Touch the multi-tenant `Evidence Portal Multi-Tenant SPA` registration
+#     or its service principals in foreign tenants.
+#   * Delete .entra-apps.json from the repo (clean up locally if needed).
+#   * Remove the federated identity credential or RBAC assignments granted
+#     to the GitHub OIDC service principal itself.
+#
+# Required GitHub repository secrets (same as deploy.yml):
+#
+#   AZURE_CLIENT_ID        OIDC SP with Owner (or Contributor + User Access
+#                          Administrator) on the resource group, plus
+#                          Application.ReadWrite.OwnedBy on Microsoft Graph
+#                          if `delete_entra_apps=true` is used.
+#   AZURE_TENANT_ID        Entra tenant id hosting the app registrations.
+#   AZURE_SUBSCRIPTION_ID  Subscription hosting the resource group.
+# ---------------------------------------------------------------------------
+name: Teardown workshop
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DESTROY to confirm. Anything else aborts.'
+        required: true
+        type: string
+      resource_group:
+        description: 'Azure resource group to delete.'
+        required: true
+        type: string
+        default: 'rg-evidence-workshop'
+      delete_entra_apps:
+        description: 'Also delete the API + SPA Entra app registrations from .entra-apps.json.'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+# Serialize teardown against itself; never run while a deploy is in flight.
+concurrency:
+  group: teardown-workshop
+  cancel-in-progress: false
+
+env:
+  CONFIRM_PHRASE: 'DESTROY'
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Fail fast if the operator did not type the confirmation phrase exactly.
+  # -------------------------------------------------------------------------
+  guard:
+    name: Confirm intent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.confirm }}" != "${CONFIRM_PHRASE}" ]; then
+            echo "::error::Confirmation phrase did not match. Expected '${CONFIRM_PHRASE}', got '${{ inputs.confirm }}'. Aborting."
+            exit 1
+          fi
+          echo "Confirmation accepted. Will delete resource group '${{ inputs.resource_group }}'."
+          if [ "${{ inputs.delete_entra_apps }}" = "true" ]; then
+            echo "Will ALSO delete API + SPA Entra app registrations from .entra-apps.json."
+          else
+            echo "Entra app registrations will be PRESERVED."
+          fi
+
+  # -------------------------------------------------------------------------
+  # Delete the Azure resource group. This is the bulk of the teardown:
+  # everything provisioned by infra/main.bicep is contained in one group.
+  # -------------------------------------------------------------------------
+  delete-resource-group:
+    name: Delete resource group
+    needs: guard
+    runs-on: ubuntu-latest
+    # To require human approval before destructive runs, create a GitHub
+    # environment (e.g. `workshop-teardown`) with required reviewers and
+    # add `environment: workshop-teardown` here.
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Show what will be deleted
+        run: |
+          set -euo pipefail
+          rg='${{ inputs.resource_group }}'
+          if ! az group show --name "$rg" -o none 2>/dev/null; then
+            echo "Resource group '$rg' does not exist. Nothing to do."
+            exit 0
+          fi
+          echo "Resources currently in '$rg':"
+          az resource list --resource-group "$rg" \
+            --query "[].{name:name, type:type, location:location}" -o table
+
+      - name: Delete resource group (synchronous)
+        run: |
+          set -euo pipefail
+          rg='${{ inputs.resource_group }}'
+          if ! az group show --name "$rg" -o none 2>/dev/null; then
+            echo "Resource group '$rg' already gone."
+            exit 0
+          fi
+          echo "Deleting resource group '$rg' (this can take several minutes)..."
+          az group delete --name "$rg" --yes
+          echo "Resource group '$rg' deleted."
+
+      - name: Verify deletion
+        run: |
+          set -euo pipefail
+          rg='${{ inputs.resource_group }}'
+          if az group show --name "$rg" -o none 2>/dev/null; then
+            echo "::error::Resource group '$rg' still exists after delete."
+            exit 1
+          fi
+          echo "Verified: resource group '$rg' no longer exists."
+
+  # -------------------------------------------------------------------------
+  # (Optional) Delete the API + SPA Entra app registrations created by
+  # scripts/setup-entra-apps.ps1. Driven by .entra-apps.json so the IDs are
+  # always current. Skipped unless the operator opts in.
+  # -------------------------------------------------------------------------
+  delete-entra-apps:
+    name: Delete Entra app registrations
+    needs: delete-resource-group
+    if: ${{ inputs.delete_entra_apps == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read app registration IDs from .entra-apps.json
+        id: ids
+        run: |
+          set -euo pipefail
+          if [ ! -f .entra-apps.json ]; then
+            echo "::warning::.entra-apps.json not found. Nothing to delete."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          api_app_id=$(jq -r '.apiAppId // empty' .entra-apps.json)
+          spa_app_id=$(jq -r '.spaAppId // empty' .entra-apps.json)
+          echo "apiAppId=$api_app_id"
+          echo "spaAppId=$spa_app_id"
+          echo "api_app_id=$api_app_id" >> "$GITHUB_OUTPUT"
+          echo "spa_app_id=$spa_app_id" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Azure login (OIDC)
+        if: ${{ steps.ids.outputs.skip == 'false' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
+
+      - name: Delete API app registration
+        if: ${{ steps.ids.outputs.skip == 'false' && steps.ids.outputs.api_app_id != '' }}
+        run: |
+          set -euo pipefail
+          app_id='${{ steps.ids.outputs.api_app_id }}'
+          if ! az ad app show --id "$app_id" -o none 2>/dev/null; then
+            echo "API app registration $app_id not found (already deleted?). Skipping."
+            exit 0
+          fi
+          echo "Deleting API app registration $app_id..."
+          az ad app delete --id "$app_id"
+          echo "Deleted."
+
+      - name: Delete SPA app registration
+        if: ${{ steps.ids.outputs.skip == 'false' && steps.ids.outputs.spa_app_id != '' }}
+        run: |
+          set -euo pipefail
+          app_id='${{ steps.ids.outputs.spa_app_id }}'
+          if ! az ad app show --id "$app_id" -o none 2>/dev/null; then
+            echo "SPA app registration $app_id not found (already deleted?). Skipping."
+            exit 0
+          fi
+          echo "Deleting SPA app registration $app_id..."
+          az ad app delete --id "$app_id"
+          echo "Deleted."
+
+      - name: Reminder to clean up local state
+        if: ${{ steps.ids.outputs.skip == 'false' }}
+        run: |
+          echo "Entra app registrations deleted. Remember to remove or update .entra-apps.json"
+          echo "in your local checkout if you plan to re-bootstrap with different IDs."
+
+  # -------------------------------------------------------------------------
+  # Summary banner so the run page shows a clear outcome at a glance.
+  # -------------------------------------------------------------------------
+  summary:
+    name: Summary
+    needs: [delete-resource-group, delete-entra-apps]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print summary
+        run: |
+          {
+            echo "## Teardown summary"
+            echo ""
+            echo "| Step | Result |"
+            echo "| --- | --- |"
+            echo "| Resource group \`${{ inputs.resource_group }}\` | ${{ needs.delete-resource-group.result }} |"
+            echo "| Entra app registrations | ${{ needs.delete-entra-apps.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
