@@ -66,9 +66,9 @@ sequenceDiagram
     SPA->>Entra: Auth Code + PKCE (login)
     Entra-->>U: Sign-in UI / consent
     U-->>Entra: credentials (+ MFA)
-    Entra-->>SPA: id_token + access_token<br/>aud=api://&lt;apiClientId&gt;<br/>scp=Evidence.Read<br/>roles=[CaseReader|CaseAdmin]
+    Entra-->>SPA: id_token + access_token<br/>aud=api://{apiClientId}<br/>scp=Evidence.Read<br/>roles=[CaseReader, CaseAdmin]
     U->>SPA: Click Download EV-001
-    SPA->>API: GET /api/evidence/EV-001/download<br/>Authorization: Bearer &lt;user JWT&gt;
+    SPA->>API: GET /api/evidence/EV-001/download<br/>Authorization: Bearer {user JWT}
     API->>API: Spring Security validates JWT<br/>issuer = login.microsoftonline.com/{tenant}/v2.0<br/>aud, scp, roles
     Note over API,IMDS: First call after deploy:<br/>MI token cache is empty
     API->>IMDS: GET /metadata/identity (MSAL4J)
@@ -122,7 +122,7 @@ This is the sequence to keep in mind when something goes wrong: a `502 Bad Gatew
 
 ```mermaid
 flowchart TB
-    Start([User clicks Download]) --> SPAreq["SPA fetch<br/>GET /api/evidence/EV-001/download<br/>Authorization: Bearer &lt;user JWT&gt;"]
+    Start([User clicks Download]) --> SPAreq["SPA fetch<br/>GET /api/evidence/EV-001/download<br/>Authorization: Bearer {user JWT}"]
     SPAreq -->|"CORS preflight"| Preflight{"OPTIONS allowed?<br/>SecurityConfig.corsConfigurationSource"}
     Preflight -->|"no"| CORSfail[["Browser blocks · CORS error"]]
     Preflight -->|"yes"| GET["GET reaches Spring Security filter chain"]
