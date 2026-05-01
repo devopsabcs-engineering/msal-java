@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MSAL Java Best Practices and Workshop PoC</title>
+  <meta name="description" content="MSAL Java best practices and a walkthrough of the Justice Evidence Portal proof of concept.">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #101828;
+      --muted: #475467;
+      --line: #d0d5dd;
+      --panel: #ffffff;
+      --soft: #f5f7fb;
+      --nav: #0b1f33;
+      --blue: #2563eb;
+      --teal: #0f766e;
+      --green: #15803d;
+      --red: #b42318;
+      --amber: #b54708;
+      --violet: #6941c6;
+      --shadow: 0 18px 50px rgba(16, 24, 40, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #f8fafc;
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.55;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    header {
+      min-height: 92vh;
+      display: grid;
+      align-items: end;
+      background:
+        linear-gradient(120deg, rgba(11, 31, 51, 0.98), rgba(16, 79, 83, 0.94)),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 120px),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 120px);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::before {
+      content: "";
+      position: absolute;
+      right: max(22px, calc((100vw - 1180px) / 2));
+      bottom: 120px;
+      width: min(500px, 44vw);
+      aspect-ratio: 1;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.18)) 50% 10% / 74% 2px no-repeat,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.18)) 50% 50% / 74% 2px no-repeat,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.18)) 50% 90% / 74% 2px no-repeat,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.18)) 14% 50% / 2px 80% no-repeat,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.18)) 50% 50% / 2px 80% no-repeat,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.18)) 86% 50% / 2px 80% no-repeat;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 28px;
+      opacity: 0.18;
+      transform: rotate(-8deg);
+    }
+
+    header::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 160px;
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0), #f8fafc);
+      pointer-events: none;
+    }
+
+    .hero {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 88px 0 132px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 22px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 0.9rem;
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 980px;
+      margin: 0;
+      font-size: clamp(3rem, 8vw, 7.2rem);
+      line-height: 0.93;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 760px;
+      margin: 28px 0 0;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 34px;
+      color: rgba(255, 255, 255, 0.86);
+      font-size: 0.95rem;
+    }
+
+    .meta span {
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(11, 31, 51, 0.96);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(14px);
+    }
+
+    nav .nav-inner {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px 0;
+    }
+
+    nav a {
+      flex: 0 0 auto;
+      color: #e6f0ff;
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 650;
+    }
+
+    nav a:hover,
+    nav a:focus-visible {
+      background: rgba(255, 255, 255, 0.12);
+      outline: none;
+    }
+
+    main {
+      margin: 0 auto;
+    }
+
+    section {
+      border-top: 1px solid var(--line);
+      background: #f8fafc;
+    }
+
+    section:nth-of-type(even) {
+      background: #eef6f8;
+    }
+
+    .section-inner {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 72px 0;
+    }
+
+    .section-kicker {
+      color: var(--teal);
+      font-size: 0.9rem;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      max-width: 900px;
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 12px;
+      font-size: 1.24rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 840px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+      margin-top: 34px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+
+    .card p,
+    .card li {
+      color: var(--muted);
+    }
+
+    .card p:last-child,
+    .card ul:last-child,
+    .card ol:last-child {
+      margin-bottom: 0;
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .stat {
+      min-height: 118px;
+      padding: 20px;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--nav);
+      box-shadow: var(--shadow);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 2rem;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .stat span {
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 0.95rem;
+    }
+
+    .flow {
+      margin-top: 34px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .flow-step {
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-radius: 8px;
+      padding: 20px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+
+    .flow-step .label {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .flow-arrow {
+      align-self: center;
+      color: var(--teal);
+      font-size: 1.7rem;
+      font-weight: 800;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 34px;
+    }
+
+    .pipeline .stage {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-top: 6px solid var(--teal);
+      border-radius: 8px;
+      padding: 18px;
+      min-height: 168px;
+    }
+
+    .stage span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .callout {
+      margin-top: 34px;
+      border-left: 6px solid var(--blue);
+      background: #eff6ff;
+      padding: 20px 22px;
+      border-radius: 8px;
+    }
+
+    .callout.warning {
+      border-color: var(--amber);
+      background: #fff7ed;
+    }
+
+    .architecture-visual {
+      margin-top: 34px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+
+    .architecture-visual svg {
+      display: block;
+      width: 100%;
+      min-width: 760px;
+      height: auto;
+    }
+
+    .architecture-visual text {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 28px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+
+    th,
+    td {
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #102a43;
+      color: #fff;
+      font-size: 0.92rem;
+    }
+
+    td {
+      color: var(--muted);
+    }
+
+    code {
+      color: #0b4f6c;
+      background: #e6f4f1;
+      border-radius: 5px;
+      padding: 0.12em 0.35em;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+    }
+
+    .ref-list {
+      columns: 2 360px;
+      column-gap: 36px;
+      margin: 28px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .ref-list li {
+      break-inside: avoid;
+      margin: 0 0 14px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .ref-list strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    footer {
+      color: rgba(255, 255, 255, 0.82);
+      background: var(--nav);
+      padding: 28px 0;
+    }
+
+    footer .footer-inner {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    footer a {
+      color: #b3d4ff;
+    }
+
+    @media (max-width: 920px) {
+      .grid.two,
+      .grid.three,
+      .stat-row,
+      .pipeline {
+        grid-template-columns: 1fr;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-arrow {
+        transform: rotate(90deg);
+        justify-self: center;
+      }
+    }
+
+    @media (max-width: 560px) {
+      header {
+        min-height: 88vh;
+      }
+
+      .hero,
+      .section-inner,
+      footer .footer-inner {
+        width: min(100% - 28px, 1180px);
+      }
+
+      .section-inner {
+        padding: 54px 0;
+      }
+
+      th,
+      td {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <div class="eyebrow">MSAL Java Workshop</div>
+      <h1>Identity-first Java apps with Microsoft Entra ID</h1>
+      <p>Practical MSAL and Azure Identity guidance for Java teams, followed by a walkthrough of the Justice Evidence Portal proof of concept in this repository.</p>
+      <div class="meta" aria-label="Page metadata">
+        <span>Java 17 + Spring Boot 3.4</span>
+        <span>Angular SPA + MSAL.js</span>
+        <span>Managed Identity + ADLS Gen2</span>
+        <span>Updated May 1, 2026</span>
+      </div>
+    </div>
+  </header>
+
+  <nav aria-label="Page sections">
+    <div class="nav-inner">
+      <a href="#sec1">01 Principles</a>
+      <a href="#sec2">02 MSAL Practices</a>
+      <a href="#sec3">03 API Authorization</a>
+      <a href="#sec4">04 Managed Identity</a>
+      <a href="#sec5">05 PoC Walkthrough</a>
+      <a href="#sec6">06 Hardening</a>
+      <a href="#sec7">07 References</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="sec1">
+      <div class="section-inner">
+        <div class="section-kicker">01 Identity Design Principles</div>
+        <h2>Start with token boundaries, not libraries.</h2>
+        <p class="lead">MSAL is the client-side token acquisition library. In a secure Java architecture, it sits inside a broader design: a public client signs in the user, an API validates delegated access tokens, and backend resources are accessed with a workload identity.</p>
+
+        <div class="stat-row">
+          <div class="stat"><strong>1</strong><span>Identity provider: Microsoft Entra ID issues tokens for users and workloads.</span></div>
+          <div class="stat"><strong>2</strong><span>Token types: ID tokens identify users; access tokens authorize API calls.</span></div>
+          <div class="stat"><strong>3</strong><span>Authorization layers: scopes model delegated permissions; roles model app decisions.</span></div>
+          <div class="stat"><strong>4</strong><span>Secret posture: managed identity removes passwords, client secrets, and storage keys from runtime.</span></div>
+        </div>
+
+        <div class="grid three">
+          <article class="card">
+            <h3>Choose the right flow</h3>
+            <p>Browser SPAs should use authorization code with PKCE. Server-side Java web apps use confidential-client patterns. Service-to-service access should use managed identity or client credentials, depending on hosting and trust boundaries.</p>
+          </article>
+          <article class="card">
+            <h3>Validate the token you receive</h3>
+            <p>An API must validate issuer, audience, signature, expiry, token version, and expected claims. Do not accept an ID token as proof that the caller can use an API.</p>
+          </article>
+          <article class="card">
+            <h3>Separate user and workload identity</h3>
+            <p>The user's delegated token should authorize the API request. The API's managed identity should authorize the downstream Azure resource call. Do not forward user tokens to storage unless that is the explicit design.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec2">
+      <div class="section-inner">
+        <div class="section-kicker">02 MSAL Java Best Practices</div>
+        <h2>Use MSAL where it owns the OAuth conversation.</h2>
+        <p class="lead">For Java apps that sign users in or call downstream APIs, MSAL Java is the protocol-level library. For Azure resource clients, prefer Azure SDK credentials such as <code>DefaultAzureCredential</code> or <code>ManagedIdentityCredential</code>; the Azure SDK uses MSAL underneath and gives a better developer experience.</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Practice</th>
+              <th>Why it matters</th>
+              <th>Implementation cue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Use authorization code + PKCE for browser apps</td>
+              <td>SPAs are public clients and cannot safely hold a client secret.</td>
+              <td>Request API scopes such as <code>api://{api-client-id}/Evidence.Read</code> from the SPA.</td>
+            </tr>
+            <tr>
+              <td>Request least-privilege scopes</td>
+              <td>Scopes are the user's delegated permissions to an API.</td>
+              <td>Expose narrow scopes on the API app registration instead of broad, reusable catch-all scopes.</td>
+            </tr>
+            <tr>
+              <td>Prefer silent token acquisition where applicable</td>
+              <td>MSAL maintains token caches and can refresh tokens before expiry.</td>
+              <td>In browser and confidential-client apps, attempt silent acquisition before interactive prompts when the flow supports it.</td>
+            </tr>
+            <tr>
+              <td>Handle Conditional Access claim challenges</td>
+              <td>MFA, device compliance, and other policies can require extra claims before a token is issued.</td>
+              <td>Catch token acquisition exceptions and route the user through the challenge rather than failing with a generic error.</td>
+            </tr>
+            <tr>
+              <td>Enable diagnostics without logging secrets</td>
+              <td>Authentication failures often require correlation IDs and authority details.</td>
+              <td>Keep PII logging disabled in normal environments and log correlation IDs, tenant, authority, and error codes.</td>
+            </tr>
+            <tr>
+              <td>Use tenant-specific authorities when possible</td>
+              <td>A tenant authority reduces ambiguity and aligns issuer validation with the API.</td>
+              <td>Use <code>https://login.microsoftonline.com/{tenant-id}</code> unless the app is intentionally multi-tenant.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <strong>Rule of thumb:</strong> MSAL acquires tokens. Spring Security validates bearer tokens. Azure Identity authenticates Azure SDK clients. Keeping those responsibilities distinct makes Java identity code easier to reason about and easier to troubleshoot.
+        </div>
+      </div>
+    </section>
+
+    <section id="sec3">
+      <div class="section-inner">
+        <div class="section-kicker">03 Java API Authorization</div>
+        <h2>A protected API is a resource server, not a login page.</h2>
+        <p class="lead">A Spring Boot API should treat the incoming access token as evidence of delegated permission, then convert expected claims into local authorities. Authentication answers who called. Authorization answers what that caller may do.</p>
+
+        <div class="flow" aria-label="API authorization flow">
+          <div class="flow-step">
+            <span class="label">Incoming request</span>
+            <h3>Bearer token</h3>
+            <p>SPA sends <code>Authorization: Bearer {access_token}</code> to the API.</p>
+          </div>
+          <div class="flow-arrow">-&gt;</div>
+          <div class="flow-step">
+            <span class="label">Validation</span>
+            <h3>JWT resource server</h3>
+            <p>Spring validates signature, issuer, audience, expiry, and configured token metadata.</p>
+          </div>
+          <div class="flow-arrow">-&gt;</div>
+          <div class="flow-step">
+            <span class="label">Decision</span>
+            <h3>Scopes and roles</h3>
+            <p><code>scp</code> becomes <code>SCOPE_*</code>; <code>roles</code> becomes <code>ROLE_*</code>.</p>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <article class="card">
+            <h3>Scopes for delegated API permissions</h3>
+            <p>This PoC protects case and evidence endpoints with <code>SCOPE_Evidence.Read</code>. That means a signed-in user must obtain an access token for the API scope before the API returns data.</p>
+          </article>
+          <article class="card">
+            <h3>App roles for application decisions</h3>
+            <p>The API also maps the Entra ID <code>roles</code> claim into Spring authorities such as <code>ROLE_CaseAdmin</code>. Use roles for coarse business permissions such as case administration.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec4">
+      <div class="section-inner">
+        <div class="section-kicker">04 Managed Identity and Azure Resources</div>
+        <h2>Remove secrets from the data path.</h2>
+        <p class="lead">For Azure-hosted Java workloads, managed identity is usually the cleanest way to call Azure resources. The app service owns an identity in Entra ID, Azure RBAC grants that identity data-plane access, and the Java SDK obtains tokens without storing credentials.</p>
+
+        <div class="grid three">
+          <article class="card">
+            <h3>Use managed identity in Azure</h3>
+            <p>System-assigned managed identity fits single-resource ownership. User-assigned managed identity fits shared identities, slot swaps, or identities that must survive resource replacement.</p>
+          </article>
+          <article class="card">
+            <h3>Pin credential behavior in production</h3>
+            <p>This PoC uses <code>ManagedIdentityCredential</code> when the App Service identity endpoint is present and <code>DefaultAzureCredential</code> for local developer scenarios.</p>
+          </article>
+          <article class="card">
+            <h3>Expect token caching differences</h3>
+            <p>MSAL Java supports in-memory caching for managed identity. Distributed cache extensibility is not supported for managed identity tokens because the token belongs to an Azure resource.</p>
+          </article>
+        </div>
+
+        <div class="callout warning">
+          <strong>Operational lesson from this repo:</strong> the first managed identity token acquisition after deployment can be noticeably slower than warm calls. For latency-sensitive first requests, warm the credential or downstream SDK client during application startup and track authentication latency in telemetry.
+        </div>
+      </div>
+    </section>
+
+    <section id="sec5">
+      <div class="section-inner">
+        <div class="section-kicker">05 How This PoC Works</div>
+        <h2>The Justice Evidence Portal uses two tokens for two different jobs.</h2>
+        <p class="lead">The sample is a three-tier application: Angular SPA, Spring Boot API, and Azure Data Lake Storage Gen2. The user token never becomes a storage credential. The API validates the user token, then uses its own managed identity to read evidence files.</p>
+
+        <div class="architecture-visual" aria-label="Justice Evidence Portal architecture diagram">
+          <svg viewBox="0 0 1160 430" role="img" aria-labelledby="architecture-title architecture-desc">
+            <title id="architecture-title">Justice Evidence Portal architecture</title>
+            <desc id="architecture-desc">Browser user authenticates with Microsoft Entra ID, calls the Angular SPA and Spring Boot API, and the API uses managed identity over a private network path to read ADLS Gen2.</desc>
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"></path>
+              </marker>
+              <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+                <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#101828" flood-opacity="0.12"></feDropShadow>
+              </filter>
+            </defs>
+
+            <rect x="0" y="0" width="1160" height="430" rx="10" fill="#f8fafc"></rect>
+            <rect x="392" y="38" width="718" height="334" rx="12" fill="#eef6f8" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="7 7"></rect>
+            <text x="412" y="70" fill="#0b1f33" font-size="17" font-weight="700">Azure subscription: App Service, VNet, Private Endpoint, ADLS Gen2</text>
+
+            <rect x="54" y="134" width="184" height="108" rx="8" fill="#ffffff" stroke="#d0d5dd" filter="url(#softShadow)"></rect>
+            <text x="146" y="168" text-anchor="middle" fill="#101828" font-size="18" font-weight="700">End user</text>
+            <text x="146" y="196" text-anchor="middle" fill="#475467" font-size="14">Browser</text>
+            <text x="146" y="218" text-anchor="middle" fill="#475467" font-size="14">Authorization code + PKCE</text>
+
+            <rect x="322" y="132" width="210" height="112" rx="8" fill="#ffffff" stroke="#d0d5dd" filter="url(#softShadow)"></rect>
+            <text x="427" y="166" text-anchor="middle" fill="#101828" font-size="18" font-weight="700">Microsoft Entra ID</text>
+            <text x="427" y="194" text-anchor="middle" fill="#475467" font-size="14">App registrations</text>
+            <text x="427" y="216" text-anchor="middle" fill="#475467" font-size="14">Scopes and app roles</text>
+
+            <rect x="606" y="110" width="184" height="108" rx="8" fill="#ffffff" stroke="#d0d5dd" filter="url(#softShadow)"></rect>
+            <text x="698" y="144" text-anchor="middle" fill="#101828" font-size="18" font-weight="700">Angular SPA</text>
+            <text x="698" y="172" text-anchor="middle" fill="#475467" font-size="14">MSAL.js</text>
+            <text x="698" y="194" text-anchor="middle" fill="#475467" font-size="14">Access token for API</text>
+
+            <rect x="606" y="260" width="184" height="108" rx="8" fill="#ffffff" stroke="#d0d5dd" filter="url(#softShadow)"></rect>
+            <text x="698" y="294" text-anchor="middle" fill="#101828" font-size="18" font-weight="700">Spring Boot API</text>
+            <text x="698" y="322" text-anchor="middle" fill="#475467" font-size="14">JWT resource server</text>
+            <text x="698" y="344" text-anchor="middle" fill="#475467" font-size="14">Managed identity</text>
+
+            <rect x="862" y="178" width="198" height="128" rx="8" fill="#ffffff" stroke="#d0d5dd" filter="url(#softShadow)"></rect>
+            <text x="961" y="214" text-anchor="middle" fill="#101828" font-size="18" font-weight="700">ADLS Gen2</text>
+            <text x="961" y="242" text-anchor="middle" fill="#475467" font-size="14">Private Endpoint</text>
+            <text x="961" y="264" text-anchor="middle" fill="#475467" font-size="14">Shared keys disabled</text>
+            <text x="961" y="286" text-anchor="middle" fill="#475467" font-size="14">RBAC data plane</text>
+
+            <path d="M238 160 C260 118 288 110 322 142" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow)"></path>
+            <text x="260" y="118" fill="#0f766e" font-size="14" font-weight="700">1 sign in</text>
+            <path d="M532 162 C558 154 576 154 606 158" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow)"></path>
+            <text x="548" y="142" fill="#0f766e" font-size="14" font-weight="700">2 tokens</text>
+            <path d="M238 214 C350 292 488 316 606 316" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow)"></path>
+            <text x="340" y="292" fill="#0f766e" font-size="14" font-weight="700">3 API call + bearer access token</text>
+            <path d="M790 314 C830 308 846 276 862 250" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow)"></path>
+            <text x="808" y="340" fill="#0f766e" font-size="14" font-weight="700">4 MI token + DFS read</text>
+            <path d="M862 224 C836 206 816 190 790 178" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow)"></path>
+            <text x="804" y="186" fill="#0f766e" font-size="14" font-weight="700">5 bytes stream back</text>
+
+            <rect x="414" y="86" width="148" height="32" rx="16" fill="#e0f2fe" stroke="#38bdf8"></rect>
+            <text x="488" y="107" text-anchor="middle" fill="#075985" font-size="13" font-weight="700">issuer + audience</text>
+            <rect x="814" y="112" width="188" height="32" rx="16" fill="#dcfce7" stroke="#22c55e"></rect>
+            <text x="908" y="133" text-anchor="middle" fill="#166534" font-size="13" font-weight="700">Private DNS resolves dfs endpoint</text>
+          </svg>
+        </div>
+
+        <div class="pipeline" aria-label="Proof of concept request path">
+          <div class="stage">
+            <span>Step 1</span>
+            <h3>User signs in</h3>
+            <p>Angular uses MSAL.js with a tenant authority, redirect flow, session storage, and the API's delegated scope.</p>
+          </div>
+          <div class="stage">
+            <span>Step 2</span>
+            <h3>SPA calls API</h3>
+            <p>The MSAL interceptor attaches the access token when calling protected API routes.</p>
+          </div>
+          <div class="stage">
+            <span>Step 3</span>
+            <h3>Spring validates JWT</h3>
+            <p>The API runs as an OAuth2 resource server and requires <code>SCOPE_Evidence.Read</code> for case and evidence endpoints.</p>
+          </div>
+          <div class="stage">
+            <span>Step 4</span>
+            <h3>API reads storage</h3>
+            <p>The API builds a Data Lake client for <code>https://{account}.dfs.core.windows.net</code> using managed identity.</p>
+          </div>
+          <div class="stage">
+            <span>Step 5</span>
+            <h3>Evidence downloads</h3>
+            <p>The API streams the evidence file back as a controlled response with a download filename.</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Repo area</th>
+              <th>What it demonstrates</th>
+              <th>Security behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>sample-app/spa/src/app/auth-config.ts</code></td>
+              <td>MSAL browser configuration, login request, and protected resource map.</td>
+              <td>The SPA requests only the API scopes it needs and avoids persistent local token storage by using session storage.</td>
+            </tr>
+            <tr>
+              <td><code>SecurityConfig.java</code></td>
+              <td>Spring Security JWT resource server configuration.</td>
+              <td>Non-dev profiles require authentication and enforce <code>SCOPE_Evidence.Read</code> on API routes.</td>
+            </tr>
+            <tr>
+              <td><code>EvidenceController.java</code></td>
+              <td>Method-level authorization for downloads.</td>
+              <td>Evidence download requires the delegated read scope before any storage read is attempted.</td>
+            </tr>
+            <tr>
+              <td><code>AzureStorageConfig.java</code></td>
+              <td>Data Lake SDK configuration with Azure Identity.</td>
+              <td>App Service uses managed identity; local development can use the developer's Azure credential chain.</td>
+            </tr>
+            <tr>
+              <td><code>infra/main.bicep</code></td>
+              <td>Azure deployment of App Service, storage, networking, monitoring, and identity permissions.</td>
+              <td>Storage keys are disabled, storage access is private, and API managed identity receives data-plane RBAC.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="sec6">
+      <div class="section-inner">
+        <div class="section-kicker">06 Production Hardening Checklist</div>
+        <h2>Keep the workshop pattern, then harden the edges.</h2>
+        <p class="lead">The PoC already demonstrates a strong baseline: no shared storage keys, no SAS tokens, JWT validation, delegated API permissions, managed identity, and private storage access. Production readiness comes from tightening operations, ingress, observability, and policy.</p>
+
+        <div class="grid two">
+          <article class="card">
+            <h3>Identity and authorization</h3>
+            <ul>
+              <li>Use tenant-specific issuer validation unless the app is intentionally multi-tenant.</li>
+              <li>Review consent grants and app role assignments regularly.</li>
+              <li>Keep delegated scopes narrow and align them to API operations.</li>
+              <li>Plan Conditional Access claim challenge handling for interactive clients.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Secrets and credentials</h3>
+            <ul>
+              <li>Prefer managed identity for Azure-hosted workloads.</li>
+              <li>Disable shared keys when using storage with Entra ID and RBAC.</li>
+              <li>Do not write tokens, authorization headers, or PII claims to logs.</li>
+              <li>Use Key Vault only for secrets that cannot be removed.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Network and storage</h3>
+            <ul>
+              <li>Use Private Endpoint and Private DNS for ADLS Gen2 data-plane access.</li>
+              <li>Route App Service outbound traffic through VNet integration.</li>
+              <li>Use the <code>dfs</code> endpoint for Data Lake workloads.</li>
+              <li>Put WAF or Front Door in front of public ingress for production.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Reliability and operations</h3>
+            <ul>
+              <li>Measure token acquisition latency and downstream SDK latency separately.</li>
+              <li>Warm managed identity and storage clients during startup when first-request latency matters.</li>
+              <li>Log correlation IDs for token failures and storage request IDs for data-plane failures.</li>
+              <li>Use Application Insights and alerts for 401, 403, 5xx, and cold-start spikes.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec7">
+      <div class="section-inner">
+        <div class="section-kicker">07 Microsoft Documentation References</div>
+        <h2>Official docs to keep open while building.</h2>
+        <p class="lead">The recommendations above are grounded in Microsoft identity platform, MSAL Java, Azure Identity, Spring Boot, managed identity, and Azure Storage documentation.</p>
+
+        <ul class="ref-list">
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/msal-overview">Microsoft Authentication Library overview</a></strong><span>What MSAL does, supported scenarios, and library guidance.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/msal/java/">MSAL for Java documentation</a></strong><span>MSAL Java concepts, APIs, and advanced topics.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/azure/developer/java/identity/secure-java-apps-with-identity-platform-overview">Secure Java apps with the Microsoft identity platform</a></strong><span>Java platform guidance for Spring Boot, Tomcat, JBoss, WebLogic, and WebSphere.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/v2-overview">Microsoft identity platform overview</a></strong><span>Core platform concepts for Entra ID tokens, apps, and permissions.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/authentication-flows-app-scenarios">Authentication flows and application scenarios</a></strong><span>Which OAuth flow fits each application type.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow">OAuth 2.0 authorization code flow</a></strong><span>Protocol details for authorization code flow and PKCE patterns.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/scenario-spa-overview">Single-page application scenario</a></strong><span>Identity platform guidance for browser-based apps.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/access-tokens">Access tokens in the Microsoft identity platform</a></strong><span>Claims, audiences, token versions, and validation considerations.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/id-tokens">ID tokens in the Microsoft identity platform</a></strong><span>What ID tokens are for and why APIs should not use them as API authorization.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/permissions-consent-overview">Permissions and consent overview</a></strong><span>Delegated permissions, application permissions, consent, and scopes.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity-platform/scopes-oidc">Scopes and permissions in the Microsoft identity platform</a></strong><span>How scope strings work for Microsoft Graph and custom web APIs.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/msal/msal-acquire-cache-tokens">Acquire and cache tokens using MSAL</a></strong><span>Token cache behavior, silent acquisition, and scope request patterns.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/msal/java/advanced/best-practices-enterprise">MSAL Java enterprise best practices</a></strong><span>Exception handling, Conditional Access, logging, and privacy guidance.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/msal/java/advanced/msal-logging-java">MSAL Java logging</a></strong><span>Diagnostics settings and privacy-aware logging practices.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/msal/java/advanced/managed-identity">Managed identity with MSAL Java</a></strong><span>Managed identity support, SDK choice, caching, and troubleshooting.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview">Managed identities for Azure resources</a></strong><span>System-assigned and user-assigned managed identity fundamentals.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/java/api/com.azure.identity.defaultazurecredential">DefaultAzureCredential class</a></strong><span>Azure Identity credential chain reference for Java.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/java/api/com.azure.identity.managedidentitycredential">ManagedIdentityCredential class</a></strong><span>Azure Identity managed identity credential reference for Java.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/azure/developer/java/sdk/identity">Azure Identity client library for Java</a></strong><span>Azure SDK authentication patterns for Java applications.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/azure/developer/java/identity/enable-spring-boot-webapp-authorization-role-entra-id">Secure Java Spring Boot apps using roles and role claims</a></strong><span>Spring Boot role claim guidance for Microsoft Entra ID.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/azure/storage/common/storage-auth-aad">Authorize access to Azure Storage using Microsoft Entra ID</a></strong><span>Storage data-plane authorization with Entra ID and Azure RBAC.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/azure/storage/blobs/authorize-access-azure-active-directory">Authorize access to blobs using Microsoft Entra ID</a></strong><span>Blob and Data Lake authorization concepts with Microsoft Entra ID.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-directory-file-acl-java">Use Java to manage directories and files in ADLS Gen2</a></strong><span>Java Data Lake SDK patterns for hierarchical namespace storage.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-overview">Azure Private Endpoint overview</a></strong><span>Private Link concepts for keeping data-plane access private.</span></li>
+          <li><strong><a href="https://learn.microsoft.com/en-us/azure/app-service/overview-vnet-integration">App Service VNet integration</a></strong><span>How App Service routes outbound traffic into a virtual network.</span></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <span>MSAL Java Workshop - Justice Evidence Portal</span>
+      <span><a href="https://github.com/devopsabcs-engineering/msal-java">devopsabcs-engineering/msal-java</a></span>
+    </div>
+  </footer>
+</body>
+</html>
