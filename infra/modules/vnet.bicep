@@ -47,8 +47,19 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
               }
             }
           ]
-          // Allow App Service to reach the storage private endpoint
-          serviceEndpoints: []
+          // Microsoft.Storage service endpoint is REQUIRED for the App
+          // Service VNet integration to be trusted by the storage account
+          // network rules. Empirically, traffic from the regional VNet
+          // integration does not bypass storage networkAcls via the
+          // Private Endpoint alone — the storage account must explicitly
+          // allow the snet-app subnet via a VirtualNetworkRule, which
+          // only works when this service endpoint is present.
+          serviceEndpoints: [
+            {
+              service: 'Microsoft.Storage'
+              locations: [ location ]
+            }
+          ]
           privateEndpointNetworkPolicies: 'Enabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
         }

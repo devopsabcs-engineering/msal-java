@@ -1,21 +1,74 @@
 %PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 4 0 R>>>>>>/Contents 5 0 R>>endobj
-4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
-5 0 obj<</Length 44>>stream
-BT /F1 24 Tf 100 700 Td (Witness Statement) Tj ET
+%‚„œ”
+1 0 obj
+<</Type/Catalog/Pages 2 0 R>>
+endobj
+2 0 obj
+<</Type/Pages/Kids[3 0 R 4 0 R]/Count 2>>
+endobj
+3 0 obj
+<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 5 0 R/F2 6 0 R>>>>/Contents 7 0 R>>
+endobj
+4 0 obj
+<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 5 0 R/F2 6 0 R>>>>/Contents 8 0 R>>
+endobj
+5 0 obj
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>
+endobj
+6 0 obj
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold>>
+endobj
+7 0 obj
+<</Length 2639>>
+stream
+BT
+/F2 9 Tf
+54 762 Td
+(Witness Statement - CASE-2024-001  -  Confidential) Tj
+-54 -24 Td
+/F2 F1 F2 F1 F2 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F2 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F2 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 18 11 11 11 13 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 13 11 11 11 11 11 11 11 11 11 11 13 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 Tf
+(Witness Statement - CASE-2024-001   Classification: Confidential   Statement Header   Case Reference: CASE-2024-001 \(Operation Shield\) Statement Number: WS-2024-0017 Witness: Mitchell, Sarah J. Date of Statement: 15 March 2024 Time of Statement: 10:30 \(local\) Location: Central Precinct, Interview Room 3 Recording Officer: Det. Robert Chen, Badge 4471 Statement Type: Voluntary, written and signed  This statement is made by the witness named above of their own free will, without coercion, and with the understanding that it may be used as evidence in a criminal proceeding. The witness has been advised of their right to consult counsel before providing this statement and has elected to proceed without representation present.   Witness Background   The witness is a thirty-four year old systems administrator employed by Halberd Logistics for the past six years. They reside in the city and have no prior involvement with law enforcement beyond a 2019 traffic citation that was paid in full. The witness holds a bachelor of science degree in computer information systems and a current industry security certification. Their employer has confirmed their employment status, length of tenure, and access privileges to the systems referenced in this statement.   Account of Events   On the morning of 12 March 2024, at approximately 07:42, the witness arrived at their place of employment and began their normal duties. At approximately 08:15 they received an automated alert from the company's endpoint detection platform indicating anomalous outbound network traffic from a workstation assigned to a colleague. The alert classified the traffic as a potential data exfiltration event with a confidence score of 0.81.  The witness states that they followed the documented incident response procedure: they isolated the affected workstation from the network, captured a memory image using the standard forensic tooling provided by the security operations team, and notified their direct supervisor and the on-call security analyst. At approximately 09:05 the affected user arrived at the office and was advised that their workstation had been) Tj
+ET
+BT
+/F1 9 Tf
+54 30 Td
+(Synthetic workshop sample - not real evidence    Page 1 of 2) Tj
+ET
+
+endstream
+endobj
+8 0 obj
+<</Length 2120>>
+stream
+BT
+/F2 9 Tf
+54 762 Td
+(Witness Statement - CASE-2024-001  -  Confidential) Tj
+-54 -24 Td
+/F1 F1 F1 F1 F1 F1 F1 F1 F1 F2 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F2 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 11 11 11 11 11 11 11 11 11 13 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 13 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 Tf
+(quarantined pending investigation.  The witness further states that the affected user appeared agitated upon learning of the quarantine action, and asked specifically whether the captured image had been transferred off the local network. The witness responded that all evidence handling had followed company policy and declined to discuss specifics. The user then left the office and did not return that day.   Items Provided to Investigators   1. A copy of the automated alert log covering the period 07:00 to 10:00 on 12 March 2024, exported from the endpoint detection platform. 2. A copy of the company's incident response runbook \(revision 4.2, effective 01 January 2024\) used during the response. 3. A copy of the workstation provisioning record for the affected device, including its assigned asset tag and last-known software inventory. 4. The witness's contemporaneous handwritten notes from the response, totalling four pages, photographed and provided as a PDF.  All items were provided voluntarily and the witness understands that copies will be retained by investigators and may be disclosed to other parties as part of the proceeding.   Declaration   I, the undersigned witness, declare under penalty of perjury that the foregoing statement is true and correct to the best of my knowledge and recollection. I have read this statement in full, I have had the opportunity to make corrections, and I affirm that it accurately represents the events as I observed them.  Signed: ____________________________ Witness: Sarah J. Mitchell Date: 15 March 2024  Witnessed by: ____________________________ Officer: Det. Robert Chen, Badge 4471 Date: 15 March 2024  ) Tj
+ET
+BT
+/F1 9 Tf
+54 30 Td
+(Synthetic workshop sample - not real evidence    Page 2 of 2) Tj
+ET
+
 endstream
 endobj
 xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000266 00000 n 
-0000000340 00000 n 
-trailer<</Size 6/Root 1 0 R>>
+0 9
+0000000000 65535 f
+0000000015 00000 n
+0000000060 00000 n
+0000000117 00000 n
+0000000238 00000 n
+0000000359 00000 n
+0000000422 00000 n
+0000000490 00000 n
+0000003179 00000 n
+trailer
+<</Size 9/Root 1 0 R>>
 startxref
-434
+5349
 %%EOF

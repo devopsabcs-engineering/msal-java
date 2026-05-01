@@ -12,13 +12,15 @@
       3. Generates a globally-unique storage account name.
       4. Creates the resource group if needed.
       5. Detects the deployer's public IP + Entra principal objectId.
-      6. Deploys infra (VNet with snet-app + snet-pe, App Service Plan,
-         two App Services with Regional VNet integration, hardened ADLS
-         Gen2 storage with shared keys disabled and publicNetworkAccess
-         off, Private Endpoint on the dfs sub-resource, Private DNS Zone
-         privatelink.dfs.<storage suffix>, App Insights, MI role
-         assignments) via Bicep. The deployer IP is added to storage
-         networkAcls only for the duration of the seeding step.
+      7. Deploys infra (VNet with snet-app + snet-pe, snet-app has a
+         Microsoft.Storage service endpoint, App Service Plan, two App
+         Services with Regional VNet integration, hardened ADLS Gen2
+         storage with shared keys disabled, defaultAction=Deny + a
+         VirtualNetworkRule allowing snet-app, Private Endpoint on the
+         dfs sub-resource, Private DNS Zone privatelink.dfs.<storage
+         suffix>, App Insights, MI role assignments) via Bicep. The
+         deployer IP is added to storage networkAcls only for the
+         duration of the seeding step.
       7. Patches environment.prod.ts with the deployed App Service URLs +
          App Insights connection string + tenant/client IDs.
       8. Builds the Angular SPA (production) and packages the Spring Boot API.
@@ -27,9 +29,10 @@
          SPA app registration (via Graph).
      11. Uploads the bundled sample evidence PDFs over OAuth (Storage Blob
          Data Contributor RBAC, no shared keys) to the storage container.
-     12. Re-deploys the storage module with deployerIp='' to flip
-         publicNetworkAccess back to Disabled (App Services keep working
-         via the Private Endpoint).
+     12. Re-deploys the storage module with deployerIp='' to remove the
+         deployer's IP from networkAcls (App Services keep working via
+         the snet-app VirtualNetworkRule + Microsoft.Storage service
+         endpoint).
      13. Runs smoke verification: API /api/cases responds, SPA returns 200.
 
     All steps are idempotent and safe to re-run.
@@ -402,9 +405,12 @@ if (-not $SkipUpload) {
 # ---------------------------------------------------------------------------
 Write-Section 'Step 10: Locking down storage (removing temporary deployer IP)'
 
-# Re-deploy with deployerIp='' so storage publicNetworkAccess flips back to
-# Disabled. The App Services keep working because they reach storage via
-# the Private Endpoint inside the integrated VNet.
+# Re-deploy with deployerIp='' so the seeding allow-rule is removed.
+# The App Services keep working because storage networkAcls trust snet-app
+# via a VirtualNetworkRule + the Microsoft.Storage service endpoint on the
+# subnet (publicNetworkAccess stays Enabled by design — Disabled would
+# block VNet rules; defaultAction=Deny + the VNet rule provide the
+# equivalent restriction).
 az deployment group create `
     --resource-group $ResourceGroup `
     --template-file "$RepoRoot/infra/main.bicep" `
@@ -419,7 +425,7 @@ az deployment group create `
                  deployerPrincipalId=$deployerObjectId `
                  deployerPrincipalType=$deployerSpType `
     --output none
-Write-Host '    Storage networkAcls now reject all public traffic. App Services reach storage via Private Endpoint.'
+Write-Host '    Storage networkAcls trust snet-app only. Public traffic (other than App Services via VNet integration) is denied.'
 
 # ---------------------------------------------------------------------------
 # Step 11 — Smoke verification

@@ -100,6 +100,7 @@ module storageAccount 'modules/storage-account.bicep' = {
     location: location
     tags: tags
     deployerIp: deployerIp
+    appSubnetId: vnet.outputs.appSubnetId
   }
 }
 

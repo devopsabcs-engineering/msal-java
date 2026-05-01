@@ -1,0 +1,46 @@
+# ---------------------------------------------------------------------------
+# .gitattributes
+#
+# Force binary handling for file types that must NOT be touched by Git's
+# line-ending normalisation. Without this, the PDF seed evidence files
+# under sample-app/api/src/main/resources/data/sample-evidence/ get
+# corrupted on Windows checkouts because Git rewrites LF -> CRLF inside
+# the byte stream, breaking the PDF cross-reference table.
+# ---------------------------------------------------------------------------
+
+# Documents
+*.pdf  binary
+*.doc  binary
+*.docx binary
+*.xls  binary
+*.xlsx binary
+*.ppt  binary
+*.pptx binary
+
+# Images
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+
+# Archives
+*.zip  binary
+*.gz   binary
+*.tar  binary
+*.7z   binary
+*.jar  binary
+*.war  binary
+
+# Fonts
+*.ttf  binary
+*.otf  binary
+*.woff  binary
+*.woff2 binary
+
+# Media
+*.mp3 binary
+*.mp4 binary
+*.mov binary
+*.wav binary

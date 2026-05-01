@@ -4,14 +4,23 @@
 // Posture:
 //   * isHnsEnabled = true            → Azure Data Lake Storage Gen2.
 //   * allowSharedKeyAccess = false   → only Entra ID (OAuth + RBAC) auth.
-//   * publicNetworkAccess = Disabled → reachable only via Private Endpoint.
+//   * publicNetworkAccess = Enabled  → required for VirtualNetworkRules to
+//                                      take effect (Disabled would cause
+//                                      storage to reject every request
+//                                      that doesn't traverse a Private
+//                                      Endpoint, including snet-app
+//                                      traffic that arrives via the
+//                                      regional VNet integration).
 //   * networkAcls.defaultAction = Deny.
+//   * virtualNetworkRules                 → snet-app is always allowed
+//                                      (App Service VNet integration).
+//   * ipRules                        → optional deployer IP for seeding.
 //   * allowBlobPublicAccess = false  → no anonymous access.
 //
 // Optional: a single deployer IP can be temporarily added to networkAcls.
 // ipRules so seeding scripts can upload sample evidence over OAuth before
-// the App Service starts using the private endpoint. Pass an empty string
-// to omit.
+// the App Service starts serving real traffic. Pass an empty string to
+// remove it.
 // ---------------------------------------------------------------------------
 
 @description('Globally unique storage account name (3-24 lowercase alphanumeric).')
@@ -24,6 +33,9 @@ param location string
 
 @description('Resource tags.')
 param tags object = {}
+
+@description('Resource ID of the App Service VNet-integration subnet (snet-app). The subnet must have a Microsoft.Storage service endpoint enabled.')
+param appSubnetId string
 
 @description('Optional public IP (or CIDR) of the deployer to temporarily allow over Entra ID auth (e.g. for sample-evidence seeding). Leave empty to keep the account fully private.')
 param deployerIp string = ''
@@ -45,7 +57,10 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
     defaultToOAuthAuthentication: true
-    publicNetworkAccess: hasDeployerIp ? 'Enabled' : 'Disabled'
+    // VirtualNetworkRules require publicNetworkAccess = Enabled.
+    // defaultAction = Deny still rejects everything that doesn't match
+    // a network rule.
+    publicNetworkAccess: 'Enabled'
     networkAcls: {
       bypass: 'AzureServices'
       defaultAction: 'Deny'
@@ -55,7 +70,12 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
           action: 'Allow'
         }
       ] : []
-      virtualNetworkRules: []
+      virtualNetworkRules: [
+        {
+          id: appSubnetId
+          action: 'Allow'
+        }
+      ]
     }
   }
 }

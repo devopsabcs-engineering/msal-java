@@ -1,21 +1,74 @@
 %PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 4 0 R>>>>>>/Contents 5 0 R>>endobj
-4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
-5 0 obj<</Length 46>>stream
-BT /F1 24 Tf 100 700 Td (Chain of Custody) Tj ET
+%‚„œ”
+1 0 obj
+<</Type/Catalog/Pages 2 0 R>>
+endobj
+2 0 obj
+<</Type/Pages/Kids[3 0 R 4 0 R]/Count 2>>
+endobj
+3 0 obj
+<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 5 0 R/F2 6 0 R>>>>/Contents 7 0 R>>
+endobj
+4 0 obj
+<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 5 0 R/F2 6 0 R>>>>/Contents 8 0 R>>
+endobj
+5 0 obj
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>
+endobj
+6 0 obj
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold>>
+endobj
+7 0 obj
+<</Length 2206>>
+stream
+BT
+/F2 9 Tf
+54 762 Td
+(Chain of Custody Record - CASE-2024-003  -  Confidential) Tj
+-54 -24 Td
+/F2 F1 F2 F1 F2 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F2 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F2 F1 F1 18 11 11 11 13 11 11 11 11 11 11 11 11 11 11 11 11 11 11 13 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 13 11 11 Tf
+(Chain of Custody Record - CASE-2024-003   Classification: Confidential   Item Identification   Case Reference: CASE-2024-003 \(Surveillance Video Authentication\) Evidence Tag: ET-2024-1188 Description: One \(1\) optical disc, DVD-R, in protective sleeve. Handwritten label reads "Lobby Cam 02 - 12-03-24 - cut". Recovered: 13 March 2024 at 14:15 from administrative office of Halberd Logistics, 1422 Industrial Way. Recovering Officer: Det. Robert Chen, Badge 4471  Initial inspection: disc appears intact, no visible scratches or damage to recording surface. Label is original handwriting; ink consistent with single-author application.   Custody Transfers   Transfer 1 From: Det. Robert Chen, Badge 4471 \(recovering officer\) To: Sgt. David Park, Badge 3320 \(evidence locker custodian\) Date and time: 13 March 2024, 18:42 Location: Central Precinct, Evidence Locker 3 Reason: Initial intake and storage pending forensic examination. Signature on file: yes \(locker logbook page 117, line 8\).  Transfer 2 From: Sgt. David Park, Badge 3320 To: Tech. Officer Lisa Chen, Badge 6604 \(forensic technician\) Date and time: 17 March 2024, 09:10 Location: Regional Digital Evidence Lab, Reception Reason: Forensic imaging and authentication examination. Signature on file: yes \(lab intake form FE-2024-0119\).  Transfer 3 From: Tech. Officer Lisa Chen, Badge 6604 To: Sgt. David Park, Badge 3320 Date and time: 22 March 2024, 16:25 Location: Central Precinct, Evidence Locker 3 Reason: Examination complete; disc returned to long-term storage. Signature on file: yes \(locker logbook page 121, line 14\).   Working Copies and Derivatives   During the period of Transfer 2 the forensic technician created two) Tj
+ET
+BT
+/F1 9 Tf
+54 30 Td
+(Synthetic workshop sample - not real evidence    Page 1 of 2) Tj
+ET
+
+endstream
+endobj
+8 0 obj
+<</Length 1947>>
+stream
+BT
+/F2 9 Tf
+54 762 Td
+(Chain of Custody Record - CASE-2024-003  -  Confidential) Tj
+-54 -24 Td
+/F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F2 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 F1 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 13 11 11 11 11 11 11 11 11 11 11 11 11 11 11 Tf
+(forensic copies of the disc for examination purposes:  Working Copy A: ISO image, file name LobbyCam02-2024-03-12-cut.iso, size 4,294,950,912 bytes, SHA-256 11aa22bb33cc44dd55ee66ff77001122334455667788 99aabbccddeeff00112233445566778899aabbccddee. Stored on lab evidence server, retention indefinite.  Working Copy B: H.264 transcode of the recovered video stream for in-court playback, file name LobbyCam02-2024-03-12-cut-playback.mp4, size 614,492,160 bytes, SHA-256 22bb33cc44dd55ee66ff7700112233445566778899aa bbccddeeff00112233445566778899aabbccddeeff00. Stored on lab evidence server, retention indefinite.  Both working copies were created on the lab examination workstation AW-5 \(s/n 91144\) using a hardware optical drive in read-only mode. Hash values were recorded immediately after creation and verified against a recomputed value at the close of the examination period. Both copies verified successfully.   Acknowledgement   The undersigned custodians acknowledge that the chain of custody recorded above is complete, accurate, and consistent with the evidence locker logbook and the laboratory intake records. No gaps, unrecorded transfers, or unaccounted-for periods exist between the recovery of the original disc and its current storage in Evidence Locker 3.  Sgt. David Park, Badge 3320 \(Evidence Custodian\) Signature: ____________________________ Date: ____________________  Tech. Officer Lisa Chen, Badge 6604 \(Examiner\) Signature: ____________________________ Date: ____________________  ) Tj
+ET
+BT
+/F1 9 Tf
+54 30 Td
+(Synthetic workshop sample - not real evidence    Page 2 of 2) Tj
+ET
+
 endstream
 endobj
 xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000266 00000 n 
-0000000340 00000 n 
-trailer<</Size 6/Root 1 0 R>>
+0 9
+0000000000 65535 f
+0000000015 00000 n
+0000000060 00000 n
+0000000117 00000 n
+0000000238 00000 n
+0000000359 00000 n
+0000000422 00000 n
+0000000490 00000 n
+0000002746 00000 n
+trailer
+<</Size 9/Root 1 0 R>>
 startxref
-436
+4743
 %%EOF
