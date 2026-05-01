@@ -440,9 +440,9 @@ Two things must be true before users in tenant **T** can sign in:
 
 | Tenant id | Notes |
 | --- | --- |
-| `cddc1229-ac2a-4b97-b78a-0e5cacb5865c` | Home tenant (`MngEnvMCAP675646.onmicrosoft.com`) |
+| `aa93b9d9-037d-4f08-a26d-783cff0e2369` | Home tenant where the registration lives |
+| `cddc1229-ac2a-4b97-b78a-0e5cacb5865c` | `MngEnvMCAP675646.onmicrosoft.com` (workshop sandbox) |
 | `a34c69c7-8959-474a-9690-e98bfb0b55c6` | `devopsabcs.com` |
-| `aa93b9d9-037d-4f08-a26d-783cf0e2369` | Additional partner tenant |
 
 Pick the option below that matches the level of access available in the target tenant.
 
@@ -468,7 +468,7 @@ Send a user from the target tenant to the SPA URL. Auth Code + PKCE hits `https:
 
 #### Option C — Pre-provision via Microsoft Graph
 
-Run from a session signed in as a Global Administrator of the target tenant:
+Run from a session signed in as a Global Administrator of the target tenant. The Microsoft Graph PowerShell module needs to be installed first if it isn't already (`Install-Module Microsoft.Graph.Authentication, Microsoft.Graph.Applications -Scope CurrentUser`):
 
 ```powershell
 Connect-MgGraph -TenantId <targetTenantId> -Scopes "Application.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
@@ -476,6 +476,31 @@ New-MgServicePrincipal -AppId 0713f130-110b-4982-9ce3-8c9227935ca0
 ```
 
 The service principal then appears under *Enterprise applications* in the target tenant. Tenant-wide consent can be granted from *Permissions → Grant admin consent*.
+
+#### Option D — Pre-provision via Azure CLI (no extra modules)
+
+If the Microsoft Graph PowerShell module is not installed, use `az` instead — it ships with the standard Azure CLI:
+
+```powershell
+# 1. Confirm the registration is actually multi-tenant (run in the home tenant).
+az login --tenant aa93b9d9-037d-4f08-a26d-783cff0e2369 --allow-no-subscriptions
+az ad app show --id 0713f130-110b-4982-9ce3-8c9227935ca0 `
+  --query "{name:displayName, appId:appId, signInAudience:signInAudience}" -o table
+# Expected: signInAudience = AzureADMultipleOrgs. If it shows AzureADMyOrg, fix it:
+az ad app update --id 0713f130-110b-4982-9ce3-8c9227935ca0 --sign-in-audience AzureADMultipleOrgs
+
+# 2. Switch to the target tenant and check whether the service principal already exists.
+az login --tenant <targetTenantId> --allow-no-subscriptions
+az ad sp list --filter "appId eq '0713f130-110b-4982-9ce3-8c9227935ca0'" `
+  --query "[].{name:displayName, appId:appId, id:id}" -o table
+
+# 3. If the previous command returned nothing, install the service principal.
+az ad sp create --id 0713f130-110b-4982-9ce3-8c9227935ca0
+```
+
+Common gotcha: signing in to the wrong tenant in step 1 returns `Resource '...' does not exist` from `az ad app show`. The home tenant for this registration is `aa93b9d9-037d-4f08-a26d-783cff0e2369`; do not confuse it with the workshop sandbox tenant `cddc1229-...`.
+
+If `az ad sp create` fails with *"does not reference a valid application object"* even though `signInAudience` is `AzureADMultipleOrgs`, the *Allow only certain tenants (Preview)* gate on the registration is blocking provisioning. Workaround: in the home tenant portal, flip the registration to *Allow all tenants* temporarily, run `az ad sp create` from the target tenant, then flip the gate back to *Allow only certain tenants* with the target tenant listed — the service principal persists.
 
 ### After consent
 
