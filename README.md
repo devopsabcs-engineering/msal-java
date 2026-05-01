@@ -425,6 +425,75 @@ msal-java/
 - **Hardened-by-default network**: App Services run with `WEBSITE_VNET_ROUTE_ALL=1` and `WEBSITE_DNS_SERVER=168.63.129.16` so all storage traffic resolves through the `privatelink.dfs.<storage-suffix>` Private DNS zone to the Private Endpoint NIC IP.
 - **Secret-less CI/CD**: GitHub Actions authenticates to Azure via OIDC federated credentials. The repo secrets (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`) are public IDs only; there is no client secret to rotate.
 
+## Multi-tenant App
+
+The single-tenant `Evidence Portal SPA` registration is the one the workshop deploys by default. Alongside it, a multi-tenant counterpart — `Evidence Portal Multi-Tenant SPA` (client id `0713f130-110b-4982-9ce3-8c9227935ca0`) — has been registered in the home tenant so external Entra ID tenants can be onboarded incrementally. It may eventually replace the single-tenant app once the API and SPA are wired for multi-tenant token validation.
+
+### Onboard a tenant
+
+Two things must be true before users in tenant **T** can sign in:
+
+1. **T is on the allow-list.** On the registration's *Authentication → Supported accounts* blade, *Allow only certain tenants (Preview)* is selected and T's tenant id is listed under *Allowed tenants*. The home tenant where the app is registered is always allowed implicitly.
+2. **A service principal for the app exists in T.** Until a user signs in or an admin consents in T, there is no service principal there, no user/group assignment is possible, and no app role can be granted.
+
+`devopsabcs.com` (`a34c69c7-8959-474a-9690-e98bfb0b55c6`) has already been added to the allow-list. Currently allowed tenants:
+
+| Tenant id | Notes |
+| --- | --- |
+| `cddc1229-ac2a-4b97-b78a-0e5cacb5865c` | Home tenant (`MngEnvMCAP675646.onmicrosoft.com`) |
+| `a34c69c7-8959-474a-9690-e98bfb0b55c6` | `devopsabcs.com` |
+| `aa93b9d9-037d-4f08-a26d-783cf0e2369` | Additional partner tenant |
+
+Pick the option below that matches the level of access available in the target tenant.
+
+#### Option A — Admin consent URL (recommended)
+
+A Global Administrator (or Privileged Role / Cloud Application Administrator) of the target tenant opens the link below **while signed into that tenant**. It instantiates the service principal and grants tenant-wide consent for any *Admin consent required* delegated scopes.
+
+```text
+https://login.microsoftonline.com/{tenantId}/adminconsent?client_id=0713f130-110b-4982-9ce3-8c9227935ca0&redirect_uri=https://app-evidence-spa-workshop.azurewebsites.net
+```
+
+For `devopsabcs.com` specifically:
+
+```text
+https://login.microsoftonline.com/a34c69c7-8959-474a-9690-e98bfb0b55c6/adminconsent?client_id=0713f130-110b-4982-9ce3-8c9227935ca0&redirect_uri=https://app-evidence-spa-workshop.azurewebsites.net
+```
+
+The `redirect_uri` must match a SPA redirect URI registered on the app. Drop the parameter to land on the generic Entra consent confirmation page instead.
+
+#### Option B — User sign-in
+
+Send a user from the target tenant to the SPA URL. Auth Code + PKCE hits `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` and Entra shows the standard consent screen. If any API permission requires admin consent, the prompt is blocked until an admin completes Option A.
+
+#### Option C — Pre-provision via Microsoft Graph
+
+Run from a session signed in as a Global Administrator of the target tenant:
+
+```powershell
+Connect-MgGraph -TenantId <targetTenantId> -Scopes "Application.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
+New-MgServicePrincipal -AppId 0713f130-110b-4982-9ce3-8c9227935ca0
+```
+
+The service principal then appears under *Enterprise applications* in the target tenant. Tenant-wide consent can be granted from *Permissions → Grant admin consent*.
+
+### After consent
+
+Once the service principal exists in the foreign tenant, an admin in that tenant still needs to:
+
+- Toggle *Assignment required?* under *Properties* if user/group gating is desired.
+- Assign users or groups to the `CaseReader` and `CaseAdmin` app roles under *Users and groups*. App roles are defined on the home-tenant registration but assigned in each foreign tenant's enterprise application.
+
+### What still needs to change in code to fully support multi-tenant
+
+The registration is multi-tenant, but the SPA and API are not yet configured for it. The following changes are required before tokens issued by `devopsabcs.com` (or any other allowed tenant) will be accepted end to end:
+
+- **SPA `auth-config.ts`**: change the `authority` from a tenant-specific `https://login.microsoftonline.com/{homeTenantId}` to `https://login.microsoftonline.com/common` (any account) or `https://login.microsoftonline.com/organizations` (work/school accounts only). A tenant-pinned authority will fail with `AADSTS50020` for users from other tenants.
+- **API JWT validation** ([SecurityConfig.java](sample-app/api/src/main/java/com/example/evidence/config/SecurityConfig.java)): the issuer is currently a single tenant URL. For multi-tenant, validate against the `https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration` discovery document (which exposes the multi-tenant signing keys) and **enforce the allow-list yourself** by reading the `tid` claim and comparing it to the same set of tenant ids configured in Entra. Without that check, any tenant on the public internet that has consented could mint valid tokens.
+- **API app registration**: the resource server (`Evidence API`) must also be set to *Multiple Entra ID tenants* in *Authentication → Supported accounts*, otherwise tokens with `aud=api://{apiClientId}` will not be issued for users outside the home tenant.
+
+Until those three changes ship, the multi-tenant registration is a placeholder — it can be onboarded into other tenants for a smoke test, but `acquireTokenSilent` and the API JWT validator will reject the resulting tokens.
+
 ## Findings and Lessons Learned
 
 These are the rough edges this codebase hit on the way to a working production deploy. Each is worth knowing before they bite you in your own environment.
