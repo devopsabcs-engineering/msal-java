@@ -1,0 +1,198 @@
+# ---------------------------------------------------------------------------
+# Build + deploy the Evidence Portal SPA (Angular 19) and API (Spring Boot 3
+# on Java 17) to the existing Azure App Services in resource group
+# rg-evidence-workshop.
+#
+# This workflow does NOT:
+#   * Bootstrap Entra ID app registrations (run scripts/setup-entra-apps.ps1
+#     once locally; the resulting app reg IDs are committed in
+#     .entra-apps.json).
+#   * Provision or modify Azure infrastructure (run scripts/deploy.ps1
+#     locally for the first deploy; this workflow only updates the running
+#     code on the existing App Services).
+#   * Reseed the sample evidence PDFs in storage (one-time, done by
+#     scripts/deploy.ps1).
+#
+# Required GitHub repository secrets (configured under
+# Settings -> Secrets and variables -> Actions):
+#
+#   AZURE_CLIENT_ID        App registration with Federated Identity Credential
+#                          for this repository (subject:
+#                          repo:devopsabcs-engineering/msal-java:ref:refs/heads/main).
+#                          The SP must have Website Contributor on
+#                          rg-evidence-workshop.
+#   AZURE_TENANT_ID        Entra tenant id.
+#   AZURE_SUBSCRIPTION_ID  Subscription id hosting rg-evidence-workshop.
+# ---------------------------------------------------------------------------
+name: Deploy SPA and API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sample-app/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+# Required for OIDC federated login to Azure (no client secret needed).
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-workshop
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: rg-evidence-workshop
+  API_APP_NAME: app-evidence-api-workshop
+  SPA_APP_NAME: app-evidence-spa-workshop
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Build SPA + API in parallel-friendly steps and publish artefacts.
+  # -------------------------------------------------------------------------
+  build:
+    name: Build artefacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: sample-app/spa/package-lock.json
+
+      # ---- API ----
+      - name: Build Spring Boot API
+        working-directory: sample-app/api
+        run: mvn -B -ntp clean package -DskipTests
+
+      - name: Capture API jar name
+        id: api
+        working-directory: sample-app/api/target
+        run: |
+          jar=$(ls evidence-api-*.jar | grep -v -E '\-(sources|javadoc)\.jar$' | head -1)
+          echo "Found jar: $jar"
+          echo "jar=$jar" >> "$GITHUB_OUTPUT"
+
+      - name: Upload API artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-jar
+          path: sample-app/api/target/${{ steps.api.outputs.jar }}
+          if-no-files-found: error
+          retention-days: 7
+
+      # ---- SPA ----
+      - name: Fetch Ontario Design System assets
+        shell: pwsh
+        run: ./scripts/fetch-ontario-design-system.ps1
+
+      - name: Install SPA dependencies
+        working-directory: sample-app/spa
+        run: npm ci
+
+      - name: Build Angular SPA (production)
+        working-directory: sample-app/spa
+        run: npx ng build --configuration production
+
+      - name: Upload SPA artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spa-dist
+          path: sample-app/spa/dist/evidence-portal/browser/
+          if-no-files-found: error
+          retention-days: 7
+
+  # -------------------------------------------------------------------------
+  # Deploy to App Service via OIDC. Runs after build succeeds.
+  # -------------------------------------------------------------------------
+  deploy:
+    name: Deploy to App Service
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: workshop
+      url: https://${{ env.SPA_APP_NAME }}.azurewebsites.net
+    steps:
+      - name: Download API artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-jar
+          path: ./api
+
+      - name: Download SPA artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: spa-dist
+          path: ./spa-dist
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve API jar path
+        id: jar
+        run: |
+          jar=$(ls ./api/evidence-api-*.jar | head -1)
+          echo "Found: $jar"
+          echo "path=$jar" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy API jar to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.API_APP_NAME }}
+          package: ${{ steps.jar.outputs.path }}
+          type: jar
+
+      - name: Package SPA into zip
+        run: |
+          cd ./spa-dist
+          zip -qr ../spa.zip .
+          ls -lh ../spa.zip
+
+      - name: Deploy SPA zip to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.SPA_APP_NAME }}
+          package: ./spa.zip
+          type: zip
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          echo "Waiting 90s for warmup..."
+          sleep 90
+
+          spa_url="https://${SPA_APP_NAME}.azurewebsites.net"
+          api_url="https://${API_APP_NAME}.azurewebsites.net/api/cases"
+
+          spa_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$spa_url" || echo "000")
+          echo "SPA  $spa_url => $spa_status"
+          if [ "$spa_status" != "200" ]; then
+            echo "::warning::SPA did not return 200 (got $spa_status); may still be warming up."
+          fi
+
+          api_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$api_url" || echo "000")
+          echo "API  $api_url => $api_status"
+          # Anonymous /api/cases must return 401 (JWT enforced). 200 means auth
+          # is broken; 5xx means the app failed to start or the storage path
+          # regression is back.
+          if [ "$api_status" != "401" ]; then
+            echo "::error::API returned $api_status; expected 401 (JWT validation enforced)."
+            exit 1
+          fi
