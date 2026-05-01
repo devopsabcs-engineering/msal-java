@@ -118,7 +118,7 @@ jobs:
           az resource list --resource-group "$rg" \
             --query "[].{name:name, type:type, location:location}" -o table
 
-      - name: Delete resource group (synchronous)
+      - name: Delete resource group (async + poll)
         run: |
           set -euo pipefail
           rg='${{ inputs.resource_group }}'
@@ -126,9 +126,23 @@ jobs:
             echo "Resource group '$rg' already gone."
             exit 0
           fi
-          echo "Deleting resource group '$rg' (this can take several minutes)..."
-          az group delete --name "$rg" --yes
-          echo "Resource group '$rg' deleted."
+          # --no-wait avoids polling /subscriptions/<sub>/operationresults/...,
+          # which would require subscription-scoped read permissions. With
+          # only RG-scoped Contributor we instead poll `az group exists`,
+          # which is an RG-scoped read.
+          echo "Issuing async delete of resource group '$rg'..."
+          az group delete --name "$rg" --yes --no-wait
+          echo "Polling for completion (timeout 30 min)..."
+          for i in $(seq 1 60); do
+            if [ "$(az group exists --name "$rg")" = "false" ]; then
+              echo "Resource group '$rg' deleted after ~$((i * 30))s."
+              exit 0
+            fi
+            echo "  [$i/60] still present, sleeping 30s..."
+            sleep 30
+          done
+          echo "::error::Timed out waiting for resource group '$rg' to delete."
+          exit 1
 
       - name: Verify deletion
         run: |
