@@ -6,7 +6,7 @@ import {
   SilentRequest,
 } from '@azure/msal-browser';
 import { from, Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, shareReplay } from 'rxjs/operators';
 import { loginRequest } from '../auth-config';
 
 /**
@@ -49,6 +49,29 @@ export class AuthService {
     return Array.isArray(roles) ? roles.map((r) => String(r)) : [];
   }
 
+  /**
+   * Effective app roles for the user. Entra ID emits the `roles` claim
+   * on the API access token by default, and only on the ID token when
+   * the app registration explicitly opts in via optional claims. We
+   * therefore prefer the access token as the source of truth and fall
+   * back to the ID token claims when the access token is unavailable.
+   */
+  getEffectiveRoles$(): Observable<string[]> {
+    return this.getAccessToken().pipe(
+      map((token) => {
+        if (token) {
+          const claims = decodeJwtPayload(token);
+          const roles = claims?.['roles'];
+          if (Array.isArray(roles)) {
+            return roles.map((r) => String(r));
+          }
+        }
+        return this.getRoles();
+      }),
+      shareReplay({ bufferSize: 1, refCount: true }),
+    );
+  }
+
   hasAnyRole(...roles: string[]): boolean {
     if (roles.length === 0) {
       return false;
@@ -63,10 +86,27 @@ export class AuthService {
   }
 
   /**
+   * Async variant of {@link canDownloadEvidence} that consults the
+   * access token roles. Use this in components — the synchronous
+   * helper only sees the ID token claims, which Entra often omits.
+   */
+  canDownloadEvidence$(): Observable<boolean> {
+    return this.getEffectiveRoles$().pipe(
+      map(
+        (roles) =>
+          roles.includes(ROLE_CASE_READER) || roles.includes(ROLE_CASE_ADMIN),
+      ),
+    );
+  }
+
+  /**
    * Acquire the current API access token silently from the MSAL cache,
    * refreshing via the hidden iframe / refresh token when needed.
+   *
+   * @param forceRefresh When true, bypass the MSAL token cache and
+   *   request a freshly minted access token from Entra ID.
    */
-  getAccessToken(): Observable<string | null> {
+  getAccessToken(forceRefresh = false): Observable<string | null> {
     const account = this.getActiveAccount();
     if (!account) {
       return of(null);
@@ -74,6 +114,7 @@ export class AuthService {
     const request: SilentRequest = {
       scopes: loginRequest.scopes,
       account,
+      forceRefresh,
     };
     return from(this.msalService.instance.acquireTokenSilent(request)).pipe(
       map((res: AuthenticationResult) => res.accessToken),
@@ -121,5 +162,35 @@ export class AuthService {
       console.warn('Fallback clipboard copy failed', err);
       return false;
     }
+  }
+}
+
+/**
+ * Decode the payload of a JWT (header.payload.signature) without
+ * verifying the signature. Used purely for reading non-sensitive
+ * claims (e.g. `roles`) on the client. The signature is validated
+ * server-side by the API.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(
+      base64.length + ((4 - (base64.length % 4)) % 4),
+      '=',
+    );
+    const json = decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    );
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch (err) {
+    console.warn('Failed to decode JWT payload', err);
+    return null;
   }
 }

@@ -29,7 +29,7 @@
       {{ showAccessToken ? 'Hide' : 'Show' }} raw value
     </button>
     <button type="button" class="ontario-button ontario-button--tertiary"
-            (click)="refreshAccessToken()" [disabled]="loadingAccessToken">
+            (click)="refreshAccessToken(true)" [disabled]="loadingAccessToken">
       {{ loadingAccessToken ? 'Refreshing…' : 'Refresh' }}
     </button>
   </div>

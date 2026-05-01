@@ -29,14 +29,25 @@ export class TokenInspectorComponent implements OnInit {
     this.refreshAccessToken();
   }
 
-  refreshAccessToken(): void {
+  refreshAccessToken(forceRefresh = false): void {
     this.loadingAccessToken = true;
-    this.authService.getAccessToken().subscribe((token) => {
+    if (forceRefresh) {
+      this.status = 'Requesting a fresh access token from Entra ID…';
+    }
+    const previousToken = this.accessToken;
+    this.authService.getAccessToken(forceRefresh).subscribe((token) => {
       this.accessToken = token;
       this.loadingAccessToken = false;
       if (!token) {
         this.status =
           'Could not silently acquire an access token. Sign out and sign back in if this persists.';
+        return;
+      }
+      if (forceRefresh) {
+        this.status =
+          token === previousToken
+            ? 'Entra returned the same access token (still valid in the cache).'
+            : 'Access token refreshed.';
       }
     });
   }

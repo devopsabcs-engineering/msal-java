@@ -31,8 +31,21 @@ export class CaseDetailComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // ID token roles render immediately so the read-only banner is
+    // accurate before the access token round-trip completes.
     this.roles = this.authService.getRoles();
     this.canDownload = this.authService.canDownloadEvidence();
+
+    // Entra emits the `roles` claim on the access token by default —
+    // upgrade the role list and download capability once it arrives.
+    this.authService.getEffectiveRoles$().subscribe((roles) => {
+      if (roles.length > 0) {
+        this.roles = roles;
+      }
+    });
+    this.authService.canDownloadEvidence$().subscribe((canDownload) => {
+      this.canDownload = canDownload;
+    });
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
