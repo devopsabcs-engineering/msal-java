@@ -344,7 +344,20 @@ if (-not $SkipUpload) {
 
     # The CLI's storage commands work transparently against HNS-enabled
     # accounts. We use --auth-mode login so no shared keys leave the
-    # workstation. RBAC + IP allow-list were both granted in Step 3.
+    # workstation. RBAC was granted in Step 3. The IP allow-list set by
+    # Step 3 is unreliable when the workstation egresses through a NAT
+    # pool with multiple public IPs (corporate network, Wi-Fi tethering),
+    # so we briefly flip the storage networkAcls.defaultAction to Allow
+    # for the duration of the upload, then Step 10 sets it back to Deny
+    # along with publicNetworkAccess=Disabled.
+    Write-Host '    Temporarily setting storage networkAcls.defaultAction=Allow for the seed upload'
+    az storage account update `
+        --resource-group $ResourceGroup `
+        --name $storageAccountName `
+        --default-action Allow `
+        --output none
+    Start-Sleep -Seconds 10
+
     for ($i = 1; $i -le 6; $i++) {
         az storage container create `
             --account-name $storageAccountName `
