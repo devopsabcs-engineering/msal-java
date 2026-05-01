@@ -25,6 +25,15 @@
     </dl>
 
     <h2 class="ontario-h2">Evidence files</h2>
+    <div *ngIf="!canDownload" class="app-warning-callout" role="status">
+      <strong>Read-only view.</strong> {{ downloadDisabledReason }}
+      <span *ngIf="roles.length > 0">
+        Your current roles: <code>{{ roles.join(', ') }}</code>.
+      </span>
+      <span *ngIf="roles.length === 0">
+        No app roles are assigned to your account.
+      </span>
+    </div>
     <table *ngIf="caseData.evidenceFiles.length > 0" class="evidence-table">
       <thead>
         <tr>
@@ -42,7 +51,12 @@
           <td>{{ file.uploadedAt }}</td>
           <td>{{ file.sizeBytes }}</td>
           <td>
-            <button type="button" class="ontario-button ontario-button--secondary" (click)="download(file.id)">
+            <button type="button"
+                    class="ontario-button ontario-button--secondary"
+                    (click)="download(file.id)"
+                    [disabled]="!canDownload"
+                    [attr.aria-disabled]="!canDownload"
+                    [title]="canDownload ? 'Download ' + file.filename : downloadDisabledReason">
               Download
             </button>
           </td>

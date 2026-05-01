@@ -258,6 +258,102 @@
   margin: 1rem 0;
 }
 
+/* --- Warning / advisory callout (e.g. read-only mode, token caveats) --- */
+.app-warning-callout {
+  border: 2px solid #d68900;
+  background: #fff4dd;
+  color: #1a1a1a;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+.app-warning-callout code {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0 0.25rem;
+  border-radius: 3px;
+}
+
+/* --- Disabled action buttons (download, etc.) --- */
+.ontario-button[disabled],
+.ontario-button[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(60%);
+  pointer-events: auto; /* keep tooltip on hover */
+}
+
+/* --- Token inspector panel --- */
+.token-inspector {
+  border-left: 4px solid #0066cc;
+}
+.token-inspector > summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.token-inspector > summary::-webkit-details-marker {
+  display: none;
+}
+.token-inspector > summary::before {
+  content: '\25B6';
+  margin-right: 0.5rem;
+  display: inline-block;
+  transition: transform 0.15s ease;
+  color: #0066cc;
+}
+.token-inspector[open] > summary::before {
+  transform: rotate(90deg);
+}
+.token-inspector__title {
+  font-size: 1.125rem;
+}
+.token-inspector__hint {
+  font-weight: 400;
+  font-size: 0.875rem;
+  color: #4d4d4d;
+}
+.token-inspector__row {
+  margin: 0.5rem 0 0.25rem;
+}
+.token-inspector__preview code {
+  background: #f2f2f2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+.token-inspector__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+}
+.token-inspector__raw {
+  width: 100%;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.8125rem;
+  padding: 0.5rem;
+  border: 1px solid #cccccc;
+  background: #fafafa;
+  resize: vertical;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.token-inspector__status {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: #14672f;
+}
+.token-inspector__footnote {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #4d4d4d;
+}
+
 /* --- Mobile tweaks --- */
 @media (max-width: 599px) {
   .ontario-application-header__user-name {

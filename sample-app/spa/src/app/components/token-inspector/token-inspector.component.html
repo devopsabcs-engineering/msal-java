@@ -1,0 +1,67 @@
+<details class="page-card token-inspector">
+  <summary>
+    <span class="token-inspector__title">Inspect your tokens</span>
+    <span class="token-inspector__hint">Open in jwt.ms or copy to the clipboard for jwt.io</span>
+  </summary>
+
+  <div class="app-warning-callout" role="note">
+    <strong>Sensitive data.</strong> Access and ID tokens grant access to APIs in
+    your name. Only paste them into trusted inspection tools (jwt.ms is hosted by
+    Microsoft and decodes tokens in the browser only). Tokens expire — typically
+    in about an hour.
+  </div>
+
+  <h3 class="ontario-h3">Access token</h3>
+  <p class="token-inspector__row">
+    <span class="token-inspector__preview"><code>{{ preview(accessToken) }}</code></span>
+  </p>
+  <div class="token-inspector__actions">
+    <button type="button" class="ontario-button ontario-button--secondary"
+            (click)="copyToken('access')" [disabled]="!accessToken">
+      Copy access token
+    </button>
+    <button type="button" class="ontario-button ontario-button--tertiary"
+            (click)="openInJwtMs('access')" [disabled]="!accessToken">
+      Open in jwt.ms
+    </button>
+    <button type="button" class="ontario-button ontario-button--tertiary"
+            (click)="toggleAccessTokenVisibility()" [disabled]="!accessToken">
+      {{ showAccessToken ? 'Hide' : 'Show' }} raw value
+    </button>
+    <button type="button" class="ontario-button ontario-button--tertiary"
+            (click)="refreshAccessToken()" [disabled]="loadingAccessToken">
+      {{ loadingAccessToken ? 'Refreshing…' : 'Refresh' }}
+    </button>
+  </div>
+  <textarea *ngIf="showAccessToken && accessToken"
+            class="token-inspector__raw" readonly rows="6">{{ accessToken }}</textarea>
+
+  <h3 class="ontario-h3">ID token</h3>
+  <p class="token-inspector__row">
+    <span class="token-inspector__preview"><code>{{ preview(idToken) }}</code></span>
+  </p>
+  <div class="token-inspector__actions">
+    <button type="button" class="ontario-button ontario-button--secondary"
+            (click)="copyToken('id')" [disabled]="!idToken">
+      Copy ID token
+    </button>
+    <button type="button" class="ontario-button ontario-button--tertiary"
+            (click)="openInJwtMs('id')" [disabled]="!idToken">
+      Open in jwt.ms
+    </button>
+    <button type="button" class="ontario-button ontario-button--tertiary"
+            (click)="toggleIdTokenVisibility()" [disabled]="!idToken">
+      {{ showIdToken ? 'Hide' : 'Show' }} raw value
+    </button>
+  </div>
+  <textarea *ngIf="showIdToken && idToken"
+            class="token-inspector__raw" readonly rows="6">{{ idToken }}</textarea>
+
+  <p *ngIf="status" class="token-inspector__status" role="status">{{ status }}</p>
+
+  <p class="token-inspector__footnote">
+    Prefer <a href="https://jwt.io" target="_blank" rel="noopener noreferrer">jwt.io</a>?
+    Use <em>Copy</em>, then paste the token into the decoder there. Both tools decode
+    tokens entirely in your browser.
+  </p>
+</details>

@@ -40,6 +40,9 @@
     </p>
   </div>
 
+  <!-- Token inspector (signed-in users only) -->
+  <app-token-inspector *ngIf="isLoggedIn"></app-token-inspector>
+
   <!-- Capability tiles -->
   <div class="feature-tiles">
     <div class="feature-tile">

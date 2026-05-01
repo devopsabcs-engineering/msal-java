@@ -5,11 +5,12 @@ import { MsalService } from '@azure/msal-angular';
 import { loginRequest } from '../../auth-config';
 import { EvidenceService } from '../../services/evidence.service';
 import { UserClaims } from '../../models/case.model';
+import { TokenInspectorComponent } from '../token-inspector/token-inspector.component';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, TokenInspectorComponent],
   templateUrl: './home.component.html',
 })
 export class HomeComponent implements OnInit {
